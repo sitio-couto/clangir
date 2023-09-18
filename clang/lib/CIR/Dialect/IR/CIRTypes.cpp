@@ -13,6 +13,7 @@
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "clang/CIR/Dialect/IR/CIRAttrs.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "clang/CIR/Dialect/IR/CIRTypesDetails.h"
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -55,17 +56,31 @@ Type CIRDialect::parseType(DialectAsmParser &parser) const {
   llvm::SMLoc typeLoc = parser.getCurrentLocation();
   StringRef mnemonic;
   Type genType;
+
+  // Try to parse tablegen'd types.
   OptionalParseResult parseResult =
       generatedTypeParser(parser, &mnemonic, genType);
   if (parseResult.has_value())
     return genType;
-  parser.emitError(typeLoc, "unknown type in CIR dialect");
-  return Type();
+
+  // Type is not tablegen'd: try to parse hand-made types.
+  return StringSwitch<function_ref<Type()>>(mnemonic)
+      .Case("struct", [&] { return StructType::parse(parser); })
+      .Default([&] {
+        parser.emitError(typeLoc) << "unknown CIR type: " << mnemonic;
+        return Type();
+      })();
 }
 
 void CIRDialect::printType(Type type, DialectAsmPrinter &os) const {
-  if (failed(generatedTypePrinter(type, os)))
-    llvm_unreachable("unexpected CIR type kind");
+  // Try to print tablegen'd types.
+  if (generatedTypePrinter(type, os).succeeded())
+    return;
+
+  // Try to print hand-made types.
+  TypeSwitch<Type>(type)
+      .Case<StructType>([&](StructType type) { StructType::print(type, os); })
+      .Default([](Type) { llvm::report_fatal_error("unknown type to print"); });
 }
 
 Type PointerType::parse(mlir::AsmParser &parser) {
@@ -94,6 +109,33 @@ void BoolType::print(mlir::AsmPrinter &printer) const {}
 //===----------------------------------------------------------------------===//
 // StructType Definitions
 //===----------------------------------------------------------------------===//
+
+void StructType::dropAst() { getImpl()->ast = std::nullopt; }
+StructType StructType::get(::mlir::MLIRContext *context,
+                           ::llvm::ArrayRef<mlir::Type> members,
+                           mlir::StringAttr typeName, bool body, bool packed,
+                           mlir::cir::StructType::RecordKind kind,
+                           std::optional<ASTRecordDeclInterface> ast) {
+  return Base::get(context, members, typeName, body, packed, kind, ast);
+}
+
+::llvm::ArrayRef<mlir::Type> StructType::getMembers() const {
+  return getImpl()->members;
+}
+
+mlir::StringAttr StructType::getTypeName() const { return getImpl()->typeName; }
+
+bool StructType::getBody() const { return getImpl()->body; }
+
+bool StructType::getPacked() const { return getImpl()->packed; }
+
+mlir::cir::StructType::RecordKind StructType::getKind() const {
+  return getImpl()->kind;
+}
+
+std::optional<ASTRecordDeclInterface> StructType::getAst() const {
+  return getImpl()->ast;
+}
 
 /// Return the largest member of in the type.
 ///
@@ -159,10 +201,10 @@ Type StructType::parse(mlir::AsmParser &parser) {
                          std::nullopt);
 }
 
-void StructType::print(mlir::AsmPrinter &printer) const {
-  printer << '<';
+void StructType::print(mlir::cir::StructType type, mlir::AsmPrinter &printer) {
+  printer << "struct<";
 
-  switch (getKind()) {
+  switch (type.getKind()) {
   case RecordKind::Struct:
     printer << "struct ";
     break;
@@ -174,22 +216,22 @@ void StructType::print(mlir::AsmPrinter &printer) const {
     break;
   }
 
-  printer << getTypeName() << " ";
+  printer << type.getTypeName() << " ";
 
-  if (getPacked())
+  if (type.getPacked())
     printer << "packed ";
 
-  if (!getBody()) {
+  if (!type.getBody()) {
     printer << "incomplete";
   } else {
     printer << "{";
-    llvm::interleaveComma(getMembers(), printer);
+    llvm::interleaveComma(type.getMembers(), printer);
     printer << "}";
   }
 
-  if (getAst().has_value()) {
+  if (type.getAst().has_value()) {
     printer << " ";
-    printer.printAttribute(getAst().value());
+    printer.printAttribute(type.getAst().value());
   }
 
   printer << '>';
@@ -505,8 +547,12 @@ bool FuncType::isVoid() const { return getReturnType().isa<VoidType>(); }
 //===----------------------------------------------------------------------===//
 
 void CIRDialect::registerTypes() {
+  // Add tablegen'd types.
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "clang/CIR/Dialect/IR/CIROpsTypes.cpp.inc"
       >();
+
+  // Add hand-made types.
+  addTypes<mlir::cir::StructType>();
 }

@@ -91,85 +91,6 @@ def CIR_BoolType :
 }
 
 //===----------------------------------------------------------------------===//
-// StructType
-//
-// The base type for all RecordDecls.
-//
-//===----------------------------------------------------------------------===//
-
-def CIR_StructType : CIR_Type<"Struct", "struct",
-    [DeclareTypeInterfaceMethods<DataLayoutTypeInterface>]> {
-
-  let summary = "CIR struct type";
-  let description = [{
-    Each unique clang::RecordDecl is mapped to a `cir.struct` and any object in
-    C/C++ that has a struct type will have a `cir.struct` in CIR.
-  }];
-
-  let parameters = (ins
-    ArrayRefParameter<"mlir::Type", "members">:$members,
-    "mlir::StringAttr":$typeName,
-    "bool":$body,
-    "bool":$packed,
-    "mlir::cir::StructType::RecordKind":$kind,
-    "std::optional<ASTRecordDeclInterface>":$ast
-  );
-
-  let hasCustomAssemblyFormat = 1;
-
-  let extraClassDeclaration = [{
-    enum RecordKind : uint32_t {
-      Class,
-      Union,
-      Struct
-    };
-
-  private:
-    // All these support lazily computation and storage
-    // for the struct size and alignment.
-    mutable std::optional<unsigned> size{}, align{};
-    mutable std::optional<bool> padded{};
-    mutable mlir::Type largestMember{};
-    void computeSizeAndAlignment(const ::mlir::DataLayout &dataLayout) const;
-  public:
-    void dropAst();
-    size_t getNumElements() const { return getMembers().size(); }
-    bool isOpaque() const { return !getBody(); }
-    bool isPadded(const ::mlir::DataLayout &dataLayout) const;
-
-    std::string getPrefixedName() {
-      const auto name = getTypeName().getValue().str();
-      switch (getKind()) {
-      case RecordKind::Class:
-        return "class." + name;
-      case RecordKind::Union:
-        return "union." + name;
-      case RecordKind::Struct:
-        return "struct." + name;
-      }
-    }
-
-    /// Return the member with the largest bit-length.
-    mlir::Type getLargestMember(const ::mlir::DataLayout &dataLayout) const;
-
-    /// Return whether this is a class declaration.
-    bool isClass() const { return getKind() == RecordKind::Class; }
-
-    /// Return whether this is a union declaration.
-    bool isUnion() const { return getKind() == RecordKind::Union; }
-
-    /// Return whether this is a struct declaration.
-    bool isStruct() const { return getKind() == RecordKind::Struct; }
-  }];
-
-  let extraClassDefinition = [{
-    void $cppClass::dropAst() {
-      getImpl()->ast = std::nullopt;
-    }
-  }];
-}
-
-//===----------------------------------------------------------------------===//
 // ArrayType
 //===----------------------------------------------------------------------===//
 
@@ -258,12 +179,5 @@ def CIR_VoidType : CIR_Type<"Void", "void"> {
     std::string getAlias() const { return "void"; };
   }];
 }
-
-//===----------------------------------------------------------------------===//
-// One type to bind them all
-//===----------------------------------------------------------------------===//
-
-def CIR_AnyCIRType : AnyTypeOf<[CIR_PointerType, CIR_BoolType, CIR_StructType,
-                                CIR_ArrayType, CIR_FuncType, CIR_VoidType]>;
 
 #endif // MLIR_CIR_DIALECT_CIR_TYPES
