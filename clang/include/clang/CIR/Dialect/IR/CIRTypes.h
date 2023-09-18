@@ -43,27 +43,46 @@ struct StructTypeStorage;
 //===----------------------------------------------------------------------===//
 
 class StructType
-    : public ::mlir::Type::TypeBase<StructType, ::mlir::Type,
-                                    detail::StructTypeStorage,
-                                    ::mlir::DataLayoutTypeInterface::Trait> {
+    : public Type::TypeBase<StructType, Type, detail::StructTypeStorage,
+                            DataLayoutTypeInterface::Trait> {
 public:
   using Base::Base;
   enum RecordKind : uint32_t { Class, Union, Struct };
 
-private:
-  // All these support lazily computation and storage
-  // for the struct size and alignment.
-  mutable std::optional<unsigned> size{}, align{};
-  mutable std::optional<bool> padded{};
-  mutable mlir::Type largestMember{};
-  void computeSizeAndAlignment(const ::mlir::DataLayout &dataLayout) const;
+  static StructType get(MLIRContext *context, ArrayRef<Type> members,
+                        StringAttr typeName, bool body, bool packed,
+                        cir::StructType::RecordKind kind,
+                        std::optional<ASTRecordDeclInterface> ast);
 
-public:
+  //
+  // Class methods.
+  //
+
+  static constexpr StringLiteral getMnemonic() { return {"struct"}; }
+  static Type parse(AsmParser &odsParser);
+  static void print(cir::StructType type, AsmPrinter &odsPrinter);
+
+  //
+  // Accessors.
+  //
+
+  bool getBody() const;
+  bool getPacked() const;
+  StructType::RecordKind getKind() const;
+  std::optional<ASTRecordDeclInterface> getAst() const;
+  ArrayRef<Type> getMembers() const;
+  StringAttr getTypeName() const;
   void dropAst();
-  size_t getNumElements() const { return getMembers().size(); }
-  bool isOpaque() const { return !getBody(); }
-  bool isPadded(const ::mlir::DataLayout &dataLayout) const;
 
+  //
+  // Pseudo accessors.
+  //
+
+  /// Return the number of members in the struct.
+  size_t getNumElements() const { return getMembers().size(); }
+  /// Return the member with the largest bit-length.
+  mlir::Type getLargestMember(const DataLayout &dataLayout) const;
+  /// Return the name of the struct prefixed with its kind.
   std::string getPrefixedName() {
     const auto name = getTypeName().getValue().str();
     switch (getKind()) {
@@ -76,39 +95,42 @@ public:
     }
   }
 
-  /// Return the member with the largest bit-length.
-  mlir::Type getLargestMember(const ::mlir::DataLayout &dataLayout) const;
+  //
+  // Predicates.
+  //
 
+  bool isOpaque() const { return !getBody(); }
+  bool isPadded(const DataLayout &dataLayout) const;
   /// Return whether this is a class declaration.
   bool isClass() const { return getKind() == RecordKind::Class; }
-
   /// Return whether this is a union declaration.
   bool isUnion() const { return getKind() == RecordKind::Union; }
-
   /// Return whether this is a struct declaration.
   bool isStruct() const { return getKind() == RecordKind::Struct; }
-  static StructType get(::mlir::MLIRContext *context,
-                        ::llvm::ArrayRef<mlir::Type> members,
-                        mlir::StringAttr typeName, bool body, bool packed,
-                        mlir::cir::StructType::RecordKind kind,
-                        std::optional<ASTRecordDeclInterface> ast);
-  static constexpr ::llvm::StringLiteral getMnemonic() { return {"struct"}; }
 
-  static ::mlir::Type parse(::mlir::AsmParser &odsParser);
-  static void print(::mlir::cir::StructType type,
-                    ::mlir::AsmPrinter &odsPrinter);
-  ::llvm::ArrayRef<mlir::Type> getMembers() const;
-  mlir::StringAttr getTypeName() const;
-  bool getBody() const;
-  bool getPacked() const;
-  mlir::cir::StructType::RecordKind getKind() const;
-  std::optional<ASTRecordDeclInterface> getAst() const;
-  unsigned getTypeSizeInBits(const ::mlir::DataLayout &dataLayout,
-                             ::mlir::DataLayoutEntryListRef params) const;
-  unsigned getABIAlignment(const ::mlir::DataLayout &dataLayout,
-                           ::mlir::DataLayoutEntryListRef params) const;
-  unsigned getPreferredAlignment(const ::mlir::DataLayout &dataLayout,
-                                 ::mlir::DataLayoutEntryListRef params) const;
+private:
+  // Attributes used to store struct layout information. These are lazily
+  // computed when queried, and once computed they will be stored for future
+  // queries.
+  mutable std::optional<unsigned> size{}, align{};
+  mutable std::optional<bool> padded{};
+  mutable mlir::Type largestMember{};
+
+  /// Compute the size and alignment of this struct. If it was already computed,
+  /// return the cached values.
+  void computeSizeAndAlignment(const DataLayout &dataLayout) const;
+
+public:
+  //
+  // DataLayoutTypeInterface::Trait methods.
+  //
+
+  unsigned getTypeSizeInBits(const DataLayout &dataLayout,
+                             DataLayoutEntryListRef params) const;
+  unsigned getABIAlignment(const DataLayout &dataLayout,
+                           DataLayoutEntryListRef params) const;
+  unsigned getPreferredAlignment(const DataLayout &dataLayout,
+                                 DataLayoutEntryListRef params) const;
 };
 
 } // namespace cir
