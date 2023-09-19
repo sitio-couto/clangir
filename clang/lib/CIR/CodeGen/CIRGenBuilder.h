@@ -168,10 +168,9 @@ public:
 
     // Struct type not specified: create type from members.
     if (!structTy)
-      structTy = getType<mlir::cir::StructType>(
-          members, mlir::StringAttr::get(getContext()),
-          /*body=*/true, packed, mlir::cir::StructType::Struct,
-          /*ast=*/std::nullopt);
+      structTy = getType<mlir::cir::StructType>(members, packed,
+                                                mlir::cir::StructType::Struct,
+                                                /*ast=*/std::nullopt);
 
     // Return zero or anonymous constant struct.
     if (isZero)
@@ -421,8 +420,12 @@ public:
       astAttr = getAttr<mlir::cir::ASTRecordDeclAttr>(ast);
       kind = getRecordKind(ast->getTagKind());
     }
-    return mlir::cir::StructType::get(getContext(), members, nameAttr, body,
-                                      packed, kind, astAttr);
+
+    // Create the struct type.
+    if (body)
+      return getType<mlir::cir::StructType>(members, nameAttr, packed, kind,
+                                            astAttr);
+    return getType<mlir::cir::StructType>(nameAttr, packed, kind, astAttr);
   }
 
   //

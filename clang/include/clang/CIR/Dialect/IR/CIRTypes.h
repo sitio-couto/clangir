@@ -49,10 +49,34 @@ public:
   using Base::Base;
   enum RecordKind : uint32_t { Class, Union, Struct };
 
+  /// Get an identfied and complete struct type.
   static StructType get(MLIRContext *context, ArrayRef<Type> members,
-                        StringAttr typeName, bool body, bool packed,
-                        cir::StructType::RecordKind kind,
+                        mlir::StringAttr typeName, bool packed,
+                        StructType::RecordKind kind,
                         std::optional<ASTRecordDeclInterface> ast);
+  static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
+                               MLIRContext *context, ArrayRef<Type> members,
+                               mlir::StringAttr typeName, bool packed,
+                               StructType::RecordKind kind,
+                               std::optional<ASTRecordDeclInterface> ast);
+
+  /// Get an identfied and incomplete struct type.
+  static StructType get(MLIRContext *context, mlir::StringAttr typeName,
+                        bool packed, StructType::RecordKind kind,
+                        std::optional<ASTRecordDeclInterface> ast);
+  static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
+                               MLIRContext *context, mlir::StringAttr typeName,
+                               bool packed, StructType::RecordKind kind,
+                               std::optional<ASTRecordDeclInterface> ast);
+
+  // Get a anonymous struct type (always complete).
+  static StructType get(MLIRContext *context, ArrayRef<Type> members,
+                        bool packed, StructType::RecordKind kind,
+                        std::optional<ASTRecordDeclInterface> ast);
+  static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
+                               MLIRContext *context, ArrayRef<Type> members,
+                               bool packed, StructType::RecordKind kind,
+                               std::optional<ASTRecordDeclInterface> ast);
 
   //
   // Class methods.
