@@ -158,6 +158,16 @@ StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                           /*incomplete=*/false, packed, kind, ast);
 }
 
+LogicalResult StructType::verify(function_ref<InFlightDiagnostic()> emitError,
+                                 ArrayRef<Type> members, StringAttr name,
+                                 bool incomplete, bool packed,
+                                 StructType::RecordKind kind,
+                                 ASTRecordDeclInterface ast) {
+  if (name && name.str().empty())
+    return emitError() << "identified structs cannot have an empty name";
+  return success();
+}
+
 void StructType::dropAst() { getImpl()->ast = nullptr; }
 
 ::llvm::ArrayRef<mlir::Type> StructType::getMembers() const {

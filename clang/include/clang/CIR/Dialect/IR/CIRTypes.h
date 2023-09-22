@@ -86,6 +86,14 @@ public:
   static Type parse(AsmParser &odsParser);
   static void print(cir::StructType type, AsmPrinter &odsPrinter);
 
+  /// Verifies that the struct type about to be constructed is well-formed.
+  static LogicalResult verify(function_ref<InFlightDiagnostic()> emitError,
+                              ArrayRef<Type> members, StringAttr name,
+                              bool incomplete, bool packed,
+                              StructType::RecordKind kind,
+                              ASTRecordDeclInterface ast);
+  using Base::verify;
+
   //
   // Accessors.
   //
