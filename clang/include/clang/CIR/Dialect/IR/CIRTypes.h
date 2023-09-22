@@ -51,21 +51,21 @@ public:
 
   /// Get an identfied and complete struct type.
   static StructType get(MLIRContext *context, ArrayRef<Type> members,
-                        mlir::StringAttr typeName, bool packed,
+                        mlir::StringAttr name, bool packed,
                         StructType::RecordKind kind,
                         ASTRecordDeclInterface ast);
   static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
                                MLIRContext *context, ArrayRef<Type> members,
-                               mlir::StringAttr typeName, bool packed,
+                               mlir::StringAttr name, bool packed,
                                StructType::RecordKind kind,
                                ASTRecordDeclInterface ast);
 
   /// Get an identfied and incomplete struct type.
-  static StructType get(MLIRContext *context, mlir::StringAttr typeName,
+  static StructType get(MLIRContext *context, mlir::StringAttr name,
                         bool packed, StructType::RecordKind kind,
                         ASTRecordDeclInterface ast);
   static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
-                               MLIRContext *context, mlir::StringAttr typeName,
+                               MLIRContext *context, mlir::StringAttr name,
                                bool packed, StructType::RecordKind kind,
                                ASTRecordDeclInterface ast);
 
@@ -95,7 +95,7 @@ public:
   StructType::RecordKind getKind() const;
   ASTRecordDeclInterface getAst() const;
   ArrayRef<Type> getMembers() const;
-  StringAttr getTypeName() const;
+  StringAttr getName() const;
   void dropAst();
 
   //
@@ -108,7 +108,7 @@ public:
   mlir::Type getLargestMember(const DataLayout &dataLayout) const;
   /// Return the name of the struct prefixed with its kind.
   std::string getPrefixedName() {
-    const auto name = getTypeName().getValue().str();
+    const auto name = getName().getValue().str();
     switch (getKind()) {
     case RecordKind::Class:
       return "class." + name;
