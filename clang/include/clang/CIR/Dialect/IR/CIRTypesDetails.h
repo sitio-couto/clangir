@@ -35,12 +35,12 @@ struct StructTypeStorage : public TypeStorage {
     bool body;
     bool packed;
     StructType::RecordKind kind;
-    std::optional<ASTRecordDeclInterface> ast;
+    ASTRecordDeclInterface ast;
 
   public:
     KeyTy(ArrayRef<Type> members, StringAttr typeName, bool body, bool packed,
           StructType::RecordKind kind,
-          std::optional<ASTRecordDeclInterface> ast)
+          ASTRecordDeclInterface ast)
         : members(members), typeName(typeName), body(body), packed(packed),
           kind(kind), ast(ast) {}
 
@@ -67,7 +67,7 @@ struct StructTypeStorage : public TypeStorage {
   bool body;
   bool packed;
   StructType::RecordKind kind;
-  std::optional<ASTRecordDeclInterface> ast;
+  ASTRecordDeclInterface ast;
 
   /// Constructs the storage from the given key.
   StructTypeStorage(const KeyTy &key)

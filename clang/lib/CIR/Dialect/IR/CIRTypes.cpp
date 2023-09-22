@@ -115,7 +115,7 @@ void BoolType::print(mlir::AsmPrinter &printer) const {}
 StructType StructType::get(MLIRContext *context, ArrayRef<Type> members,
                            mlir::StringAttr typeName, bool packed,
                            StructType::RecordKind kind,
-                           std::optional<ASTRecordDeclInterface> ast) {
+                           ASTRecordDeclInterface ast) {
   return Base::get(context, members, typeName, /*body=*/true, packed, kind,
                    ast);
 }
@@ -123,7 +123,7 @@ StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context, ArrayRef<Type> members,
                                   mlir::StringAttr typeName, bool packed,
                                   StructType::RecordKind kind,
-                                  std::optional<ASTRecordDeclInterface> ast) {
+                                  ASTRecordDeclInterface ast) {
   return Base::getChecked(emitError, context, members, typeName, /*body=*/true,
                           packed, kind, ast);
 }
@@ -131,7 +131,7 @@ StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
 /// Get an identfied and incomplete struct type.
 StructType StructType::get(MLIRContext *context, mlir::StringAttr typeName,
                            bool packed, StructType::RecordKind kind,
-                           std::optional<ASTRecordDeclInterface> ast) {
+                           ASTRecordDeclInterface ast) {
   return Base::get(context, ArrayRef<Type>{}, typeName,
                    /*body=*/false, packed, kind, ast);
 }
@@ -139,7 +139,7 @@ StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context,
                                   mlir::StringAttr typeName, bool packed,
                                   StructType::RecordKind kind,
-                                  std::optional<ASTRecordDeclInterface> ast) {
+                                  ASTRecordDeclInterface ast) {
   return Base::getChecked(emitError, context, ArrayRef<Type>{}, typeName,
                           /*body=*/false, packed, kind, ast);
 }
@@ -147,20 +147,20 @@ StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
 // Get a anonymous struct type (always complete).
 StructType StructType::get(MLIRContext *context, ArrayRef<Type> members,
                            bool packed, StructType::RecordKind kind,
-                           std::optional<ASTRecordDeclInterface> ast) {
+                           ASTRecordDeclInterface ast) {
   return Base::get(context, members, StringAttr::get(context, ""),
                    /*body=*/true, packed, kind, ast);
 }
 StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context, ArrayRef<Type> members,
                                   bool packed, StructType::RecordKind kind,
-                                  std::optional<ASTRecordDeclInterface> ast) {
+                                  ASTRecordDeclInterface ast) {
   return Base::getChecked(emitError, context, members,
                           StringAttr::get(context, ""),
                           /*body=*/true, packed, kind, ast);
 }
 
-void StructType::dropAst() { getImpl()->ast = std::nullopt; }
+void StructType::dropAst() { getImpl()->ast = nullptr; }
 
 ::llvm::ArrayRef<mlir::Type> StructType::getMembers() const {
   return getImpl()->members;
@@ -176,7 +176,7 @@ mlir::cir::StructType::RecordKind StructType::getKind() const {
   return getImpl()->kind;
 }
 
-std::optional<ASTRecordDeclInterface> StructType::getAst() const {
+ASTRecordDeclInterface StructType::getAst() const {
   return getImpl()->ast;
 }
 
@@ -247,12 +247,12 @@ Type StructType::parse(mlir::AsmParser &parser) {
   // Try to create the proper record type.
   StructType type = {};
   if (!identified)
-    type = getChecked(errFunc, context, members, packed, kind, std::nullopt);
+    type = getChecked(errFunc, context, members, packed, kind, nullptr);
   else if (identified && !body)
-    type = getChecked(errFunc, context, id, packed, kind, std::nullopt);
+    type = getChecked(errFunc, context, id, packed, kind, nullptr);
   else { // identified && body
     type =
-        getChecked(errFunc, context, members, id, packed, kind, std::nullopt);
+        getChecked(errFunc, context, members, id, packed, kind, nullptr);
   }
 
   return type;
@@ -286,9 +286,9 @@ void StructType::print(mlir::cir::StructType type, mlir::AsmPrinter &printer) {
     printer << "}";
   }
 
-  if (type.getAst().has_value()) {
+  if (type.getAst()) {
     printer << " ";
-    printer.printAttribute(type.getAst().value());
+    printer.printAttribute(type.getAst());
   }
 
   printer << '>';

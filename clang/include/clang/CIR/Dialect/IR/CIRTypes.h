@@ -53,30 +53,30 @@ public:
   static StructType get(MLIRContext *context, ArrayRef<Type> members,
                         mlir::StringAttr typeName, bool packed,
                         StructType::RecordKind kind,
-                        std::optional<ASTRecordDeclInterface> ast);
+                        ASTRecordDeclInterface ast);
   static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
                                MLIRContext *context, ArrayRef<Type> members,
                                mlir::StringAttr typeName, bool packed,
                                StructType::RecordKind kind,
-                               std::optional<ASTRecordDeclInterface> ast);
+                               ASTRecordDeclInterface ast);
 
   /// Get an identfied and incomplete struct type.
   static StructType get(MLIRContext *context, mlir::StringAttr typeName,
                         bool packed, StructType::RecordKind kind,
-                        std::optional<ASTRecordDeclInterface> ast);
+                        ASTRecordDeclInterface ast);
   static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
                                MLIRContext *context, mlir::StringAttr typeName,
                                bool packed, StructType::RecordKind kind,
-                               std::optional<ASTRecordDeclInterface> ast);
+                               ASTRecordDeclInterface ast);
 
   // Get a anonymous struct type (always complete).
   static StructType get(MLIRContext *context, ArrayRef<Type> members,
                         bool packed, StructType::RecordKind kind,
-                        std::optional<ASTRecordDeclInterface> ast);
+                        ASTRecordDeclInterface ast);
   static StructType getChecked(function_ref<InFlightDiagnostic()> emitError,
                                MLIRContext *context, ArrayRef<Type> members,
                                bool packed, StructType::RecordKind kind,
-                               std::optional<ASTRecordDeclInterface> ast);
+                               ASTRecordDeclInterface ast);
 
   //
   // Class methods.
@@ -93,7 +93,7 @@ public:
   bool getBody() const;
   bool getPacked() const;
   StructType::RecordKind getKind() const;
-  std::optional<ASTRecordDeclInterface> getAst() const;
+  ASTRecordDeclInterface getAst() const;
   ArrayRef<Type> getMembers() const;
   StringAttr getTypeName() const;
   void dropAst();

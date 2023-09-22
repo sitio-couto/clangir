@@ -178,7 +178,7 @@ public:
     if (!structTy)
       structTy = getType<mlir::cir::StructType>(members, packed,
                                                 mlir::cir::StructType::Struct,
-                                                /*ast=*/std::nullopt);
+                                                /*ast=*/nullptr);
 
     // Return zero or anonymous constant struct.
     if (isZero)
@@ -422,7 +422,7 @@ public:
                                     llvm::StringRef name, bool body,
                                     bool packed, const clang::RecordDecl *ast) {
     const auto nameAttr = getStringAttr(name);
-    std::optional<mlir::cir::ASTRecordDeclAttr> astAttr = std::nullopt;
+    mlir::cir::ASTRecordDeclAttr astAttr = nullptr;
     auto kind = mlir::cir::StructType::RecordKind::Struct;
     if (ast) {
       astAttr = getAttr<mlir::cir::ASTRecordDeclAttr>(ast);
