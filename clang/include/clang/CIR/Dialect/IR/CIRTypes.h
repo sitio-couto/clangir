@@ -90,7 +90,6 @@ public:
   // Accessors.
   //
 
-  bool getBody() const;
   bool getPacked() const;
   StructType::RecordKind getKind() const;
   ASTRecordDeclInterface getAst() const;
@@ -123,7 +122,11 @@ public:
   // Predicates.
   //
 
-  bool isOpaque() const { return !getBody(); }
+  /// Return whether this is forward declaration.
+  bool isIncomplete() const;
+  /// Return whether this is a full declaration.
+  bool isComplete() const { return !isIncomplete(); };
+  /// Return whether this struct is padded.
   bool isPadded(const DataLayout &dataLayout) const;
   /// Return whether this is a class declaration.
   bool isClass() const { return getKind() == RecordKind::Class; }

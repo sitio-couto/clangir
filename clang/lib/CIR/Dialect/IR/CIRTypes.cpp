@@ -116,15 +116,16 @@ StructType StructType::get(MLIRContext *context, ArrayRef<Type> members,
                            mlir::StringAttr name, bool packed,
                            StructType::RecordKind kind,
                            ASTRecordDeclInterface ast) {
-  return Base::get(context, members, name, /*body=*/true, packed, kind, ast);
+  return Base::get(context, members, name, /*incomplete=*/false, packed, kind,
+                   ast);
 }
 StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context, ArrayRef<Type> members,
                                   mlir::StringAttr name, bool packed,
                                   StructType::RecordKind kind,
                                   ASTRecordDeclInterface ast) {
-  return Base::getChecked(emitError, context, members, name, /*body=*/true,
-                          packed, kind, ast);
+  return Base::getChecked(emitError, context, members, name,
+                          /*incomplete=*/false, packed, kind, ast);
 }
 
 /// Get an identfied and incomplete struct type.
@@ -132,29 +133,29 @@ StructType StructType::get(MLIRContext *context, mlir::StringAttr name,
                            bool packed, StructType::RecordKind kind,
                            ASTRecordDeclInterface ast) {
   return Base::get(context, ArrayRef<Type>{}, name,
-                   /*body=*/false, packed, kind, ast);
+                   /*incomplete=*/true, packed, kind, ast);
 }
 StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context, mlir::StringAttr name,
                                   bool packed, StructType::RecordKind kind,
                                   ASTRecordDeclInterface ast) {
   return Base::getChecked(emitError, context, ArrayRef<Type>{}, name,
-                          /*body=*/false, packed, kind, ast);
+                          /*incomplete=*/true, packed, kind, ast);
 }
 
 // Get a anonymous struct type (always complete).
 StructType StructType::get(MLIRContext *context, ArrayRef<Type> members,
                            bool packed, StructType::RecordKind kind,
                            ASTRecordDeclInterface ast) {
-  return Base::get(context, members, /*name=*/nullptr, /*body=*/true, packed,
-                   kind, ast);
+  return Base::get(context, members, /*name=*/nullptr, /*incomplete=*/false,
+                   packed, kind, ast);
 }
 StructType StructType::getChecked(function_ref<InFlightDiagnostic()> emitError,
                                   MLIRContext *context, ArrayRef<Type> members,
                                   bool packed, StructType::RecordKind kind,
                                   ASTRecordDeclInterface ast) {
   return Base::getChecked(emitError, context, members, /*name=*/nullptr,
-                          /*body=*/true, packed, kind, ast);
+                          /*incomplete=*/false, packed, kind, ast);
 }
 
 void StructType::dropAst() { getImpl()->ast = nullptr; }
@@ -165,7 +166,7 @@ void StructType::dropAst() { getImpl()->ast = nullptr; }
 
 mlir::StringAttr StructType::getName() const { return getImpl()->name; }
 
-bool StructType::getBody() const { return getImpl()->body; }
+bool StructType::isIncomplete() const { return getImpl()->incomplete; }
 
 bool StructType::getPacked() const { return getImpl()->packed; }
 
@@ -188,17 +189,13 @@ Type StructType::parse(mlir::AsmParser &parser) {
   MLIRContext *context = parser.getContext();
   const auto loc = parser.getEncodedSourceLoc(parser.getCurrentLocation());
   auto errFunc = [loc] { return emitError(loc); };
-  llvm::SmallVector<mlir::Type> members;
-  bool body = false;
-  bool packed = false;
-  mlir::cir::ASTRecordDeclAttr ast = nullptr;
-  RecordKind kind;
 
   if (parser.parseLess())
     return {};
 
   // TODO(cir): in the future we should probably separate types for different
   // source language declarations such as cir.class, cir.union, and cir.struct
+  RecordKind kind;
   if (parser.parseOptionalKeyword("struct").succeeded())
     kind = RecordKind::Struct;
   else if (parser.parseOptionalKeyword("union").succeeded())
@@ -213,24 +210,25 @@ Type StructType::parse(mlir::AsmParser &parser) {
   mlir::StringAttr name;
   parser.parseOptionalAttribute(name);
 
+  bool packed = false;
   if (parser.parseOptionalKeyword("packed").succeeded())
     packed = true;
 
+  // Parse record members or lack thereof.
+  bool incomplete = true;
+  llvm::SmallVector<mlir::Type> members;
   if (parser.parseOptionalKeyword("incomplete").failed()) {
-    body = true;
-    const auto delim = AsmParser::Delimiter::Braces;
-    auto result = parser.parseCommaSeparatedList(delim, [&]() -> ParseResult {
-      mlir::Type ty;
-      if (parser.parseType(ty))
-        return mlir::failure();
-      members.push_back(ty);
-      return mlir::success();
-    });
-
-    if (result.failed())
+    incomplete = false;
+    const auto delimiter = AsmParser::Delimiter::Braces;
+    const auto parseElementFn = [&parser, &members]() {
+      return parser.parseType(members.emplace_back());
+    };
+    if (parser.parseCommaSeparatedList(delimiter, parseElementFn).failed())
       return {};
   }
 
+  // Parse optional AST attribute. This is just a formality.
+  mlir::cir::ASTRecordDeclAttr ast = nullptr;
   parser.parseOptionalAttribute(ast);
 
   if (parser.parseGreater())
@@ -240,7 +238,7 @@ Type StructType::parse(mlir::AsmParser &parser) {
   StructType type = {};
   if (!name) // anonymous
     type = getChecked(errFunc, context, members, packed, kind, nullptr);
-  else if (name && !body) // identified & incomplete
+  else if (name && incomplete) // identified & incomplete
     type = getChecked(errFunc, context, name, packed, kind, nullptr);
   else { // identified & complete
     type = getChecked(errFunc, context, members, name, packed, kind, nullptr);
@@ -270,7 +268,7 @@ void StructType::print(mlir::cir::StructType type, mlir::AsmPrinter &printer) {
   if (type.getPacked())
     printer << "packed ";
 
-  if (!type.getBody()) {
+  if (type.isIncomplete()) {
     printer << "incomplete";
   } else {
     printer << "{";
@@ -377,7 +375,7 @@ bool StructType::isPadded(const ::mlir::DataLayout &dataLayout) const {
 
 void StructType::computeSizeAndAlignment(
     const ::mlir::DataLayout &dataLayout) const {
-  assert(!isOpaque() && "Cannot get layout of opaque structs");
+  assert(isComplete() && "Cannot get layout of opaque structs");
   // Do not recompute.
   if (size || align || padded || largestMember)
     return;

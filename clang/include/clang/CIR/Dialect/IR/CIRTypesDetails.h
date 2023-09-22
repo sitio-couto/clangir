@@ -32,49 +32,50 @@ struct StructTypeStorage : public TypeStorage {
   private:
     ArrayRef<Type> members;
     StringAttr name;
-    bool body;
+    bool incomplete;
     bool packed;
     StructType::RecordKind kind;
     ASTRecordDeclInterface ast;
 
   public:
-    KeyTy(ArrayRef<Type> members, StringAttr name, bool body, bool packed,
+    KeyTy(ArrayRef<Type> members, StringAttr name, bool incomplete, bool packed,
           StructType::RecordKind kind, ASTRecordDeclInterface ast)
-        : members(members), name(name), body(body), packed(packed), kind(kind),
-          ast(ast) {}
+        : members(members), name(name), incomplete(incomplete), packed(packed),
+          kind(kind), ast(ast) {}
 
     bool operator==(const KeyTy &other) const {
       return (members == other.members) && (name == other.name) &&
-             (body == other.body) && (packed == other.packed) &&
+             (incomplete == other.incomplete) && (packed == other.packed) &&
              (kind == other.kind) && (ast == other.ast);
     }
 
     llvm::hash_code hashValue() const {
-      return hash_combine(members, name, body, packed, kind, ast);
+      return hash_combine(members, name, incomplete, packed, kind, ast);
     }
 
     /// Copies dynamically-sized components of the key into the given allocator.
     KeyTy copyIntoAllocator(TypeStorageAllocator &allocator) const {
-      return KeyTy(allocator.copyInto(members), name, body, packed, kind, ast);
+      return KeyTy(allocator.copyInto(members), name, incomplete, packed, kind,
+                   ast);
     }
   };
 
   // Storage for the types parameters and attributes.
   ArrayRef<Type> members;
   StringAttr name;
-  bool body;
+  bool incomplete;
   bool packed;
   StructType::RecordKind kind;
   ASTRecordDeclInterface ast;
 
   /// Constructs the storage from the given key.
   StructTypeStorage(const KeyTy &key)
-      : members(key.members), name(key.name), body(key.body),
+      : members(key.members), name(key.name), incomplete(key.incomplete),
         packed(key.packed), kind(key.kind), ast(key.ast) {}
 
   /// Get the storage instance as a key.
   KeyTy getAsKey() const {
-    return KeyTy(members, name, body, packed, kind, ast);
+    return KeyTy(members, name, incomplete, packed, kind, ast);
   }
 
   //

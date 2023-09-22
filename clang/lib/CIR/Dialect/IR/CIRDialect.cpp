@@ -2413,7 +2413,7 @@ LogicalResult GetMemberOp::verify() {
 
   // FIXME: currently we bypass typechecking of incomplete types due to errors
   // in the codegen process. This should be removed once the codegen is fixed.
-  if (!recordTy.getBody())
+  if (recordTy.isIncomplete())
     return mlir::success();
 
   if (recordTy.getMembers().size() <= getIndex())
