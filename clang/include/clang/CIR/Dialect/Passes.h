@@ -38,6 +38,9 @@ std::unique_ptr<Pass> createFlattenCFGPass();
 
 void populateCIRPreLoweringPasses(mlir::OpPassManager &pm);
 
+/// Create a pass to lower ABI-independent function definitions/calls.
+std::unique_ptr<Pass> createCallConvLoweringPass();
+
 //===----------------------------------------------------------------------===//
 // Registration
 //===----------------------------------------------------------------------===//

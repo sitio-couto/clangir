@@ -526,6 +526,14 @@ def StoreOp : CIR_Op<"store", [
                        UnitAttr:$is_volatile,
                        OptionalAttr<MemOrder>:$mem_order);
 
+  let builders = [
+    OpBuilder<(ins "Value":$value, "Value":$addr), [{
+      $_state.addOperands({value, addr});
+    }]>
+  ];
+
+  // FIXME: we should not be printing `cir.ptr` below, that should come
+  // from the pointer type directly.
   let assemblyFormat = [{
     (`volatile` $is_volatile^)?
     (`atomic` `(` $mem_order^ `)`)?

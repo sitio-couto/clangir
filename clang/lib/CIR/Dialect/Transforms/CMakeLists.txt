@@ -8,6 +8,7 @@ add_clang_library(MLIRCIRTransforms
   LibOpt.cpp
   StdHelpers.cpp
   FlattenCFG.cpp
+  CallConvLowering.cpp
 
   DEPENDS
   MLIRCIRPassIncGen

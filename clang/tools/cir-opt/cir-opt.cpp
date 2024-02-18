@@ -59,6 +59,10 @@ int main(int argc, char **argv) {
     return mlir::createReconcileUnrealizedCastsPass();
   });
 
+  ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
+    return mlir::createCallConvLoweringPass();
+  });
+
   mlir::registerTransformsPasses();
 
   return failed(MlirOptMain(

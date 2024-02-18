@@ -128,4 +128,15 @@ def LibOpt : Pass<"cir-lib-opt"> {
   ];
 }
 
+def CallConvLowering : Pass<"cir-call-conv-lowering"> {
+  let summary = "Handle calling conventions for CIR functions";
+  let description = [{
+    This pass lowers CIR function definitions and calls according to the
+    calling conventions specified in the function signature. This pass
+    is necessary to lower CIR functions to LLVM IR.
+  }];
+  let constructor = "mlir::createCallConvLoweringPass()";
+  let dependentDialects = ["mlir::cir::CIRDialect"];
+}
+
 #endif // MLIR_DIALECT_CIR_PASSES
