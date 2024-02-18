@@ -32,6 +32,10 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
         module->getAttr("cir.triple").cast<StringAttr>().getValue());
     LoweringModule state();
 
+    // const CIRGenFunctionInfoTest &FI =
+    //     state.getTypes().arrangeGlobalDeclaration(op);
+    // FuncType Ty = state.getTypes().getFunctionType(FI);
+
     return success();
   }
 };
