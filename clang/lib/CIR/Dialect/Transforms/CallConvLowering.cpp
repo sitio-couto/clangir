@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ABI/CIRFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -30,10 +31,10 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     llvm::Triple triple(
         module->getAttr("cir.triple").cast<StringAttr>().getValue());
-    LoweringModule state();
+    LoweringModule state;
 
-    // const CIRGenFunctionInfoTest &FI =
-    //     state.getTypes().arrangeGlobalDeclaration(op);
+    const CIRFunctionInfo &FI =
+        state.getTypes().arrangeGlobalDeclaration(op);
     // FuncType Ty = state.getTypes().getFunctionType(FI);
 
     return success();

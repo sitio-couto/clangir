@@ -1,7 +1,12 @@
 #pragma once
 
 // Used to replace CodeGenTypes from Clang in ABI lowering.
+#include "ABI/CIRFunctionInfo.h"
 #include "ABI/LoweringModule.h"
+#include "clang/CIR/Dialect/IR/CIRDialect.h"
+
+namespace mlir {
+namespace cir {
 
 class LoweringModule;
 
@@ -12,4 +17,9 @@ private:
 public:
   LoweringTypes(LoweringModule &LM) : LM(LM){};
   ~LoweringTypes() = default;
+
+  const CIRFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {}
 };
+
+} // namespace cir
+} // namespace mlir
