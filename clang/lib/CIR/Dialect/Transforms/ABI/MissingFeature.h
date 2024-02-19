@@ -10,6 +10,23 @@ struct MissingFeature {
   // this feature here since CIR's codegen is already over.
   static bool recursiveFunctionProcessing() { return true; }
 
+  // CIR does not have enough information to easily distinguish different kinds
+  // of functions (ctor, dtor, method, etc).
+  static bool isCtorOrDtor() { return true; }
+  static bool isMethod() { return true; }
+
+  // Some other possible source languages are not yet handled by CIR.
+  static bool CUDA() { return true; }
+
+  // CIR does not yet hold any form of qualified types. This information is used
+  // for ABI lowering and is stripped from the IR until only the canonical type
+  // is left. We need to think about how to handle this.
+  static bool qualifiedTypes() { return true; }
+
+  // FunctionInfo objects are cached using a profile. This is not yet
+  // implemented in CIR, and I'm not sure if it need to be.
+  static bool fnInfoProfile() { return true; }
+
   // Features that will eventually be implemented.
   static bool isCoerceAndExpand() { return true; }
   static bool sretArgument() { return true; }

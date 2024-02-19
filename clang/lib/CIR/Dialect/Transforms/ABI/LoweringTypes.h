@@ -1,16 +1,27 @@
 #pragma once
 
 // Used to replace CodeGenTypes from Clang in ABI lowering.
-#include "ABI/LoweringFunctionInfo.h"
 #include "ABI/CIRToCIRArgMapping.h"
+#include "ABI/FnInfoOpts.h"
+#include "ABI/LoweringFunctionInfo.h"
 #include "ABI/MissingFeature.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Types.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/IR/CallingConv.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
 namespace cir {
 
+// Forward declarations.
+class LoweringTypes;
 class LoweringModule;
+static const LoweringFunctionInfo &
+arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
+                        SmallVectorImpl<mlir::Type> &prefix, FuncType FTP);
 
 class LoweringTypes {
 private:
@@ -24,10 +35,76 @@ public:
   LoweringTypes(LoweringModule &LM, MLIRContext *ctx) : LM(LM), ctx(ctx){};
   ~LoweringTypes() = default;
 
-  const LoweringFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {
-    llvm_unreachable("NYI");
+  unsigned clangCallConvToLLVMCallConv(clang::CallingConv CC) {
+    switch (CC) {
+    case clang::CC_C:
+      return llvm::CallingConv::C;
+    default:
+      llvm_unreachable("calling convention NYI");
+    }
   }
 
+  /// Arrange the argument and result information for a value of the
+  /// given freestanding function type.
+  const LoweringFunctionInfo &arrangeFreeFunctionType(FuncType FTy) {
+    SmallVector<mlir::Type, 16> argTypes;
+    return cir::arrangeLLVMFunctionInfo(*this, /*instanceMethod=*/false,
+                                        argTypes, FTy);
+  }
+
+  /// Arrange the argument and result information for the declaration or
+  /// definition of the given function.
+  const LoweringFunctionInfo &arrangeFunctionDeclaration(FuncOp FD) {
+    if (!MissingFeature::isMethod())
+      llvm_unreachable("NYI");
+
+    assert(MissingFeature::qualifiedTypes());
+    FuncType FTy = FD.getFunctionType();
+
+    assert(MissingFeature::CUDA());
+
+    // When declaring a function without a prototype, always use a
+    // non-variadic type.
+    if (FD.getNoProto()) {
+      llvm_unreachable("NYI");
+    }
+
+    return arrangeFreeFunctionType(FTy);
+  }
+
+  const LoweringFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {
+    if (!MissingFeature::isCtorOrDtor())
+      llvm_unreachable("NYI");
+
+    return arrangeFunctionDeclaration(GD);
+  }
+
+  /// Arrange the argument and result information for an abstract value
+  /// of a given function type.  This is the method which all of the
+  /// above functions ultimately defer to.
+  const LoweringFunctionInfo &arrangeLLVMFunctionInfo(Type resultType,
+                                                      FnInfoOpts opts,
+                                                      ArrayRef<Type> argTypes,
+                                                      RequiredArgs required) {
+    assert(MissingFeature::qualifiedTypes());
+
+    assert(MissingFeature::fnInfoProfile());
+    LoweringFunctionInfo *FI = nullptr;
+
+    assert(MissingFeature::extParamInfo());
+    unsigned CC = clangCallConvToLLVMCallConv(clang::CallingConv::CC_C);
+
+    // Construct the function info.  We co-allocate the ArgInfos.
+    FI = LoweringFunctionInfo::create(
+        CC, /*isInstanceMethod=*/false, /*isChainCall=*/false,
+        /*isDelegateCall=*/false, resultType, argTypes, required);
+
+    assert(MissingFeature::recursiveFunctionProcessing());
+
+    return *FI;
+  }
+
+  /// Return the ABI-specific function type for a CIR function type.
   FuncType getFunctionType(const LoweringFunctionInfo &FI) {
 
     assert(MissingFeature::recursiveFunctionProcessing());
@@ -89,6 +166,36 @@ public:
     return FuncType::get(getContext(), ArgTypes, resultType, FI.isVariadic());
   }
 };
+
+/// Adds the formal parameters in FPT to the given prefix. If any parameter in
+/// FPT has pass_object_size attrs, then we'll add parameters for those, too.
+static void appendParameterTypes(SmallVectorImpl<Type> &prefix, FuncType FPT) {
+  // Fast path: don't touch param info if we don't need to.
+  if (/*!FPT->hasExtParameterInfos()=*/true) {
+    prefix.append(FPT.getInputs().begin(), FPT.getInputs().end());
+    return;
+  }
+
+  assert(MissingFeature::extParamInfo());
+  llvm_unreachable("NYI");
+}
+
+/// Arrange the LLVM function layout for a value of the given function
+/// type, on top of any implicit parameters already stored.
+static const LoweringFunctionInfo &
+arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
+                        SmallVectorImpl<mlir::Type> &prefix, FuncType FTP) {
+  assert(MissingFeature::extParamInfo());
+  RequiredArgs Required = RequiredArgs::forPrototypePlus(FTP, prefix.size());
+  // FIXME: Kill copy.
+  appendParameterTypes(prefix, FTP);
+  assert(MissingFeature::qualifiedTypes());
+  Type resultType = FTP.getReturnType();
+
+  FnInfoOpts opts =
+      instanceMethod ? FnInfoOpts::IsInstanceMethod : FnInfoOpts::None;
+  return CGT.arrangeLLVMFunctionInfo(resultType, opts, prefix, Required);
+}
 
 } // namespace cir
 } // namespace mlir

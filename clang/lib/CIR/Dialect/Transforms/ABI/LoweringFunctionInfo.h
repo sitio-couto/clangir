@@ -2,6 +2,7 @@
 
 #include "ABI/MissingFeature.h"
 #include "mlir/IR/Types.h"
+#include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TrailingObjects.h"
 #include <cstddef>
@@ -60,6 +61,37 @@ public:
   }
 };
 
+/// A class for recording the number of arguments that a function
+/// signature requires.
+class RequiredArgs {
+  /// The number of required arguments, or ~0 if the signature does
+  /// not permit optional arguments.
+  unsigned NumRequired;
+
+public:
+  enum All_t { All };
+
+  RequiredArgs(All_t _) : NumRequired(~0U) {}
+  explicit RequiredArgs(unsigned n) : NumRequired(n) { assert(n != ~0U); }
+
+  /// Compute the arguments required by the given formal prototype,
+  /// given that there may be some additional, non-formal arguments
+  /// in play.
+  ///
+  /// If FD is not null, this will consider pass_object_size params in FD.
+  static RequiredArgs forPrototypePlus(const FuncType prototype,
+                                       unsigned additional) {
+    if (!prototype.isVarArg())
+      return All;
+
+    llvm_unreachable("Variadic function is NYI");
+  }
+
+  static RequiredArgs forPrototype(const FuncType prototype) {
+    return forPrototypePlus(prototype, 0);
+  }
+};
+
 // Implementation detail of CGFunctionInfo, factored out so it can be named
 // in the TrailingObjects base class of CGFunctionInfo.
 struct LoweringFunctionInfoArgInfo {
@@ -70,23 +102,56 @@ struct LoweringFunctionInfoArgInfo {
 class LoweringFunctionInfo final
     : private llvm::TrailingObjects<LoweringFunctionInfo,
                                     LoweringFunctionInfoArgInfo> {
-private:
   typedef LoweringFunctionInfoArgInfo ArgInfo;
 
-  const ArgInfo *getArgsBuffer() const { return getTrailingObjects<ArgInfo>(); }
+  /// The LLVM::CallingConv to use for this function (as specified by the
+  /// user).
+  unsigned CallingConvention : 8;
+
+  /// The LLVM::CallingConv to actually use for this function, which may
+  /// depend on the ABI.
+  unsigned EffectiveCallingConvention : 8;
+
+  /// Whether this is an instance method.
+  unsigned InstanceMethod : 1;
+
+  /// Whether this is a chain call.
+  unsigned ChainCall : 1;
+
+  /// Whether this function is called by forwarding arguments.
+  /// This doesn't support inalloca or varargs.
+  unsigned DelegateCall : 1;
+
+  RequiredArgs Required;
 
   unsigned NumArgs;
 
-  LoweringFunctionInfo() = default;
+  const ArgInfo *getArgsBuffer() const { return getTrailingObjects<ArgInfo>(); }
+  ArgInfo *getArgsBuffer() { return getTrailingObjects<ArgInfo>(); }
+
+  LoweringFunctionInfo() : Required(RequiredArgs::All) {}
 
 public:
-  static LoweringFunctionInfo *create(ArrayRef<mlir::Type> argTypes) {
+  static LoweringFunctionInfo *create(unsigned llvmCC, bool instanceMethod,
+                                      bool chainCall, bool delegateCall,
+                                      Type resultType,
+                                      ArrayRef<mlir::Type> argTypes,
+                                      RequiredArgs required) {
     // TODO(cir): Add assertions?
     assert(MissingFeature::extParamInfo());
     void *buffer = operator new(totalSizeToAlloc<ArgInfo>(argTypes.size() + 1));
 
     LoweringFunctionInfo *FI = new (buffer) LoweringFunctionInfo();
+    FI->CallingConvention = llvmCC;
+    FI->EffectiveCallingConvention = llvmCC;
+    FI->InstanceMethod = instanceMethod;
+    FI->ChainCall = chainCall;
+    FI->DelegateCall = delegateCall;
+    FI->Required = required;
     FI->NumArgs = argTypes.size();
+    FI->getArgsBuffer()[0].type = resultType;
+    for (unsigned i = 0, e = argTypes.size(); i != e; ++i)
+      FI->getArgsBuffer()[i + 1].type = argTypes[i];
 
     return FI;
   };
