@@ -17,6 +17,7 @@ struct MissingFeature {
   static bool argumentPadding() { return true; }
   static bool canBeFlattened() { return true; }
   static bool variadicFunctions() { return true; }
+  static bool extParamInfo() { return true; }
 };
 
 } // namespace cir

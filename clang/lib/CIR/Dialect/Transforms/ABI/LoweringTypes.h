@@ -24,7 +24,9 @@ public:
   LoweringTypes(LoweringModule &LM, MLIRContext *ctx) : LM(LM), ctx(ctx){};
   ~LoweringTypes() = default;
 
-  const LoweringFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) { return {}; }
+  const LoweringFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {
+    llvm_unreachable("NYI");
+  }
 
   FuncType getFunctionType(const LoweringFunctionInfo &FI) {
 

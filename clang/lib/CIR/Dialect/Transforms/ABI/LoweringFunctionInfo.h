@@ -3,6 +3,8 @@
 #include "ABI/MissingFeature.h"
 #include "mlir/IR/Types.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TrailingObjects.h"
+#include <cstddef>
 #include <cstdint>
 
 namespace mlir {
@@ -60,22 +62,46 @@ public:
 
 // Implementation detail of CGFunctionInfo, factored out so it can be named
 // in the TrailingObjects base class of CGFunctionInfo.
-struct CGFunctionInfoArgInfo {
+struct LoweringFunctionInfoArgInfo {
   mlir::Type type;
   ABIArgInfo info;
 };
 
-class LoweringFunctionInfo final {
+class LoweringFunctionInfo final
+    : private llvm::TrailingObjects<LoweringFunctionInfo,
+                                    LoweringFunctionInfoArgInfo> {
 private:
-  typedef CGFunctionInfoArgInfo ArgInfo;
+  typedef LoweringFunctionInfoArgInfo ArgInfo;
+
+  const ArgInfo *getArgsBuffer() const { return getTrailingObjects<ArgInfo>(); }
+
+  unsigned NumArgs;
+
+  LoweringFunctionInfo() = default;
 
 public:
-  LoweringFunctionInfo() = default;
-  ~LoweringFunctionInfo() = default;
+  static LoweringFunctionInfo *create(ArrayRef<mlir::Type> argTypes) {
+    // TODO(cir): Add assertions?
+    assert(MissingFeature::extParamInfo());
+    void *buffer = operator new(totalSizeToAlloc<ArgInfo>(argTypes.size() + 1));
+
+    LoweringFunctionInfo *FI = new (buffer) LoweringFunctionInfo();
+    FI->NumArgs = argTypes.size();
+
+    return FI;
+  };
+  void operator delete(void *p) { ::operator delete(p); }
+
+  // Friending class TrailingObjects is apparently not good enough for MSVC,
+  // so these have to be public.
+  friend class TrailingObjects;
+  size_t numTrailingObjects(OverloadToken<ArgInfo>) const {
+    return NumArgs + 1;
+  }
 
   typedef const ArgInfo *const_arg_iterator;
 
-  const_arg_iterator arg_begin() const { llvm_unreachable("NYI"); }
+  const_arg_iterator arg_begin() const { return getArgsBuffer() + 1; }
 
   bool isVariadic() const {
     assert(MissingFeature::variadicFunctions());
