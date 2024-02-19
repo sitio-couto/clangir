@@ -35,7 +35,7 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     const CIRFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);
-    // FuncType Ty = state.getTypes().getFunctionType(FI);
+    FuncType Ty = state.getTypes().getFunctionType(FI);
 
     return success();
   }

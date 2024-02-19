@@ -18,7 +18,13 @@ public:
   LoweringTypes(LoweringModule &LM) : LM(LM){};
   ~LoweringTypes() = default;
 
-  const CIRFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {}
+  const CIRFunctionInfo &arrangeGlobalDeclaration(FuncOp GD) {
+    return {};
+  }
+
+  FuncType getFunctionType(const CIRFunctionInfo &FI) {
+    return {};
+  }
 };
 
 } // namespace cir
