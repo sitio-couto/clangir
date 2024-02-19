@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ABI/CIRFunctionInfo.h"
+#include "ABI/LoweringFunctionInfo.h"
 #include "mlir/IR/MLIRContext.h"
 #include "llvm/Support/ErrorHandling.h"
 namespace mlir {

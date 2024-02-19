@@ -1,14 +1,13 @@
 #pragma once
 
-// Used to replace CodeGenModule from Clang.
 #include "ABI/LoweringTypes.h"
-#include "mlir-c/IR.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 
 namespace mlir {
 namespace cir {
 
+/// Replaces CodeGenModule from Clang in ABI lowering.
 class LoweringModule {
 private:
   ModuleOp module;

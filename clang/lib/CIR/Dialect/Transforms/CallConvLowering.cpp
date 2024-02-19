@@ -6,12 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ABI/CIRFunctionInfo.h"
+#include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+
 #define GEN_PASS_DEF_CALLCONVLOWERING
 #include "clang/CIR/Dialect/Passes.h.inc"
 

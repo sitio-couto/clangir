@@ -4,6 +4,7 @@
 #include "mlir/IR/Types.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cstdint>
+
 namespace mlir {
 namespace cir {
 

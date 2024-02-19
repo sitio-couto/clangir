@@ -1,7 +1,7 @@
 #pragma once
 
 // Used to replace CodeGenTypes from Clang in ABI lowering.
-#include "ABI/CIRFunctionInfo.h"
+#include "ABI/LoweringFunctionInfo.h"
 #include "ABI/CIRToCIRArgMapping.h"
 #include "ABI/MissingFeature.h"
 #include "mlir/IR/MLIRContext.h"
