@@ -31,11 +31,12 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     llvm::Triple triple(
         module->getAttr("cir.triple").cast<StringAttr>().getValue());
-    LoweringModule state;
+    LoweringModule state(module);
 
-    const CIRFunctionInfo &FI =
+    const LoweringFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);
     FuncType Ty = state.getTypes().getFunctionType(FI);
+    Ty.dump();
 
     return success();
   }

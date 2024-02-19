@@ -2,21 +2,25 @@
 
 // Used to replace CodeGenModule from Clang.
 #include "ABI/LoweringTypes.h"
+#include "mlir-c/IR.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/MLIRContext.h"
 
 namespace mlir {
 namespace cir {
 
-class LoweringTypes;
-
 class LoweringModule {
 private:
+  ModuleOp module;
   LoweringTypes types;
 
 public:
-  LoweringModule() : types(*this){};
+  LoweringModule(ModuleOp &module)
+      : module(module), types(*this, module.getContext()){};
   ~LoweringModule() = default;
 
   LoweringTypes &getTypes() { return types; }
+  MLIRContext *getContext() { return module.getContext(); }
 };
 
 } // namespace cir
