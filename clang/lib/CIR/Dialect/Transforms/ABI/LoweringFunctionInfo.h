@@ -28,6 +28,9 @@ public:
     /// Valid only for integer argument types. Same as 'direct' but also emit a
     /// zero/sign extension attribute.
     Extend,
+
+    /// Not yet supported.
+    Indirect,
   };
 
 private:
@@ -167,12 +170,19 @@ public:
   typedef const ArgInfo *const_arg_iterator;
 
   const_arg_iterator arg_begin() const { return getArgsBuffer() + 1; }
+  const_arg_iterator arg_end() const { return getArgsBuffer() + 1 + NumArgs; }
+
+  unsigned arg_size() const { return NumArgs; }
 
   bool isVariadic() const {
     assert(MissingFeature::variadicFunctions());
     return false;
   }
-  unsigned getNumRequiredArgs() const { llvm_unreachable("NYI"); }
+  unsigned getNumRequiredArgs() const {
+    if (isVariadic())
+      llvm_unreachable("NYI");
+    return arg_size();
+  }
 
   const ABIArgInfo &getReturnInfo() const { return {}; }
 };
