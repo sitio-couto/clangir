@@ -37,6 +37,8 @@ public:
   LoweringTypes(LoweringModule &LM);
   ~LoweringTypes() = default;
 
+  LoweringModule &getCGM() const { return LM; }
+
   unsigned clangCallConvToLLVMCallConv(clang::CallingConv CC);
 
   /// Arrange the argument and result information for a value of the

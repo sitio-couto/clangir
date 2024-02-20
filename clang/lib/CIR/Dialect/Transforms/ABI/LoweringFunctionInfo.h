@@ -93,6 +93,8 @@ public:
   static RequiredArgs forPrototype(const FuncType prototype) {
     return forPrototypePlus(prototype, 0);
   }
+
+  bool allowsOptionalArgs() const { return NumRequired != ~0U; }
 };
 
 // Implementation detail of CGFunctionInfo, factored out so it can be named
@@ -184,7 +186,7 @@ public:
     return arg_size();
   }
 
-  const ABIArgInfo &getReturnInfo() const { return ABIArgInfo{}; }
+  const ABIArgInfo &getReturnInfo() const { return getArgsBuffer()[0].info; }
 };
 
 } // namespace cir

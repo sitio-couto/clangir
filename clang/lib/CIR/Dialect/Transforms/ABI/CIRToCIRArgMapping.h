@@ -52,7 +52,7 @@ public:
     for (LoweringFunctionInfo::const_arg_iterator I = FI.arg_begin();
          ArgNo < NumArgs; ++I, ++ArgNo) {
       assert(I != FI.arg_end());
-      Type ArgType = I->type;
+      // Type ArgType = I->type;
       const ABIArgInfo &AI = I->info;
       // Collect data about IR arguments corresponding to Clang argument ArgNo.
       auto &IRArgs = ArgInfo[ArgNo];
