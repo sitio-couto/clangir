@@ -65,6 +65,7 @@ public:
       case ABIArgInfo::Extend:
       case ABIArgInfo::Direct: {
         // FIXME(cir): handle sseregparm someday...
+        assert(AI.getCoerceToType() && "Missing coerced type!!");
         StructType STy = dyn_cast<StructType>(AI.getCoerceToType());
         if (AI.isDirect() && AI.getCanBeFlattened() && STy) {
           IRArgs.NumberOfArgs = STy.getNumElements();

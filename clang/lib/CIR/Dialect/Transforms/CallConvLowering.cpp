@@ -6,11 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+// FIXME(cir): This header file is not exposed to the public API, but can be
+// reused by CIR ABI lowering, since it holds target-specific information.
+#include "../../../Basic/Targets.h"
+
 #include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "clang/Basic/TargetOptions.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
 
 #define GEN_PASS_DEF_CALLCONVLOWERING
@@ -32,7 +37,12 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     llvm::Triple triple(
         module->getAttr("cir.triple").cast<StringAttr>().getValue());
-    LoweringModule state(module);
+    clang::TargetOptions targetOptions;
+    targetOptions.Triple = triple.str();
+
+    auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
+
+    LoweringModule state(module, *targetInfo);
 
     const LoweringFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);
