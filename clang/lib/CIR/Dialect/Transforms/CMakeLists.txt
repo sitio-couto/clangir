@@ -1,3 +1,5 @@
+add_subdirectory(ABI)
+
 add_clang_library(MLIRCIRTransforms
   LifetimeCheck.cpp
   LoweringPrepare.cpp
@@ -16,6 +18,7 @@ add_clang_library(MLIRCIRTransforms
   LINK_LIBS PUBLIC
   clangAST
   clangBasic
+  ABILowering
 
   MLIRAnalysis
   MLIRIR

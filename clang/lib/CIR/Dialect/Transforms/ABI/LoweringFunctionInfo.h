@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ABI/MissingFeature.h"
+#include "MissingFeature.h"
 #include "mlir/IR/Types.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -184,7 +184,7 @@ public:
     return arg_size();
   }
 
-  const ABIArgInfo &getReturnInfo() const { return {}; }
+  const ABIArgInfo &getReturnInfo() const { return ABIArgInfo{}; }
 };
 
 } // namespace cir

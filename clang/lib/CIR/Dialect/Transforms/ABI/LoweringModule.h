@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ABI/LoweringTypes.h"
-#include "ABI/TargetLoweringInfo.h"
+#include "LoweringTypes.h"
+#include "TargetLoweringInfo.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "clang/Basic/TargetInfo.h"
@@ -26,14 +26,13 @@ enum class X86AVXABILevel {
 class LoweringModule {
 private:
   ModuleOp module;
-  LoweringTypes types;
   const clang::TargetInfo &Target;
-
   mutable std::unique_ptr<TargetLoweringInfo> TheTargetCodeGenInfo;
 
+  LoweringTypes types;
+
 public:
-  LoweringModule(ModuleOp &module, const clang::TargetInfo &target)
-      : module(module), types(*this, module.getContext()), Target(target){};
+  LoweringModule(ModuleOp &module, const clang::TargetInfo &target);
   ~LoweringModule() = default;
 
   LoweringTypes &getTypes() { return types; }
@@ -41,36 +40,8 @@ public:
   const clang::TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
 
-  const TargetLoweringInfo &getTargetLoweringInfo() {
-    if (!TheTargetCodeGenInfo)
-      TheTargetCodeGenInfo = createTargetLoweringInfo(*this);
-    return *TheTargetCodeGenInfo;
-  }
+  const TargetLoweringInfo &getTargetLoweringInfo();
 };
-
-static std::unique_ptr<TargetLoweringInfo>
-createTargetLoweringInfo(LoweringModule &LM) {
-  const clang::TargetInfo &Target = LM.getTarget();
-  const llvm::Triple &Triple = Target.getTriple();
-
-  switch (Triple.getArch()) {
-  case llvm::Triple::x86_64: {
-    StringRef ABI = Target.getABI();
-    X86AVXABILevel AVXLevel = (ABI == "avx512" ? X86AVXABILevel::AVX512
-                               : ABI == "avx"  ? X86AVXABILevel::AVX
-                                               : X86AVXABILevel::None);
-
-    switch (Triple.getOS()) {
-    case llvm::Triple::Win32:
-      llvm_unreachable("Windows ABI NYI");
-    default:
-      llvm_unreachable("ABI NYI");
-    }
-  }
-  default:
-    llvm_unreachable("ABI NYI");
-  }
-}
 
 } // namespace cir
 } // namespace mlir

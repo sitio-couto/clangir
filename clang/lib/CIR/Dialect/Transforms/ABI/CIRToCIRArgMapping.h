@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ABI/LoweringFunctionInfo.h"
-#include "ABI/MissingFeature.h"
+#include "LoweringFunctionInfo.h"
+#include "MissingFeature.h"
 #include "mlir/IR/MLIRContext.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/ErrorHandling.h"
