@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CIRCXXABI.h"
 #include "llvm/IR/CallingConv.h"
 
 namespace mlir {
@@ -19,6 +20,8 @@ protected:
 public:
   ABIInfo(LoweringTypes &LT) : LT(LT), RuntimeCC(llvm::CallingConv::C) {}
   virtual ~ABIInfo();
+
+  CIRCXXABI &getCXXABI() const;
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;
 };

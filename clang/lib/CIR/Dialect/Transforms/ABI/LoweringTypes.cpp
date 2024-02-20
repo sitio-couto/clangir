@@ -40,7 +40,7 @@ arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
 } // namespace
 
 LoweringTypes::LoweringTypes(LoweringModule &LM)
-    : LM(LM), ctx(LM.getContext()),
+    : LM(LM), ctx(LM.getContext()), CXXABI(LM.getCXXABI()),
       TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()) {}
 
 unsigned LoweringTypes::clangCallConvToLLVMCallConv(clang::CallingConv CC) {

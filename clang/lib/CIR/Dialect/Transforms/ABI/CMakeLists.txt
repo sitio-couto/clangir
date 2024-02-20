@@ -4,6 +4,8 @@ add_clang_library(ABILowering
   ABIInfo.cpp
   TargetLoweringInfo.cpp
   X86.cpp
+  ABIInfoImpl.cpp
+  TargetInfo.cpp
 
   DEPENDS
 

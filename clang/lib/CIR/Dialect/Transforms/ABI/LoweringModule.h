@@ -16,6 +16,7 @@ private:
   ModuleOp module;
   const clang::TargetInfo &Target;
   mutable std::unique_ptr<TargetLoweringInfo> TheTargetCodeGenInfo;
+  std::unique_ptr<CIRCXXABI> ABI;
 
   LoweringTypes types;
 
@@ -25,6 +26,7 @@ public:
 
   LoweringTypes &getTypes() { return types; }
   MLIRContext *getContext() { return module.getContext(); }
+  CIRCXXABI &getCXXABI() const { return *ABI; }
   const clang::TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
 

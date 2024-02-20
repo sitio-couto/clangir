@@ -36,6 +36,9 @@ struct MissingFeature {
   static bool canBeFlattened() { return true; }
   static bool variadicFunctions() { return true; }
   static bool extParamInfo() { return true; }
+  static bool regCall() { return true; }
+  static bool chainCall() { return true; }
+  static bool vector() { return true; }
 };
 
 } // namespace cir

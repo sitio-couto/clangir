@@ -3,7 +3,7 @@
 // Used to replace CodeGenTypes from Clang in ABI lowering.
 #include "ABIInfo.h"
 #include "CIRToCIRArgMapping.h"
-#include "FnInfoOpts.h"
+#include "LoweringCall.h"
 #include "LoweringFunctionInfo.h"
 #include "MissingFeature.h"
 #include "mlir/IR/MLIRContext.h"
@@ -20,10 +20,12 @@ namespace cir {
 // Forward declarations.
 class LoweringModule;
 
+// Used to replace CodeGenTypes from Clang in ABI lowering.
 class LoweringTypes {
 private:
   LoweringModule &LM;
   MLIRContext *ctx;
+  CIRCXXABI &CXXABI;
 
   // This should not be moved earlier, since its initialization depends on some
   // of the previous reference members being already initialized
@@ -38,6 +40,7 @@ public:
   ~LoweringTypes() = default;
 
   LoweringModule &getCGM() const { return LM; }
+  CIRCXXABI &getCXXABI() const { return CXXABI; }
 
   unsigned clangCallConvToLLVMCallConv(clang::CallingConv CC);
 
@@ -60,7 +63,6 @@ public:
   /// Return the ABI-specific function type for a CIR function type.
   FuncType getFunctionType(const LoweringFunctionInfo &FI);
 };
-
 
 } // namespace cir
 } // namespace mlir

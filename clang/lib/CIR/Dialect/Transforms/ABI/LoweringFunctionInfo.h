@@ -49,6 +49,7 @@ public:
   Kind getKind() const { return kind; }
   bool isDirect() const { return kind == Direct; }
   bool isExtend() const { return kind == Extend; }
+  bool isIndirect() const { return kind == Indirect; }
   bool isCoerceAndExpand() const {
     MissingFeature::isCoerceAndExpand();
     llvm_unreachable("NYI");
@@ -170,9 +171,12 @@ public:
   }
 
   typedef const ArgInfo *const_arg_iterator;
+  typedef ArgInfo *arg_iterator;
 
   const_arg_iterator arg_begin() const { return getArgsBuffer() + 1; }
   const_arg_iterator arg_end() const { return getArgsBuffer() + 1 + NumArgs; }
+  arg_iterator arg_begin() { return getArgsBuffer() + 1; }
+  arg_iterator arg_end() { return getArgsBuffer() + 1 + NumArgs; }
 
   unsigned arg_size() const { return NumArgs; }
 
@@ -186,7 +190,14 @@ public:
     return arg_size();
   }
 
+  Type getReturnType() const { return getArgsBuffer()[0].type; }
+
+  ABIArgInfo &getReturnInfo() { return getArgsBuffer()[0].info; }
   const ABIArgInfo &getReturnInfo() const { return getArgsBuffer()[0].info; }
+
+  /// Return the user specified callingconvention, which has been translated
+  /// into an LLVM CC.
+  unsigned getCallingConvention() const { return CallingConvention; }
 };
 
 } // namespace cir
