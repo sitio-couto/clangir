@@ -10,14 +10,6 @@
 namespace mlir {
 namespace cir {
 
-/// FIXME(cir): This should be moved to a more appropriate place.
-/// The AVX ABI level for X86 targets.
-enum class X86AVXABILevel {
-  None,
-  AVX,
-  AVX512,
-};
-
 /// Replaces CodeGenModule from Clang in ABI lowering.
 class LoweringModule {
 private:

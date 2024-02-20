@@ -117,7 +117,7 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   } else if (!MissingFeature::extParamInfo()) {
     llvm_unreachable("NYI");
   } else {
-    llvm_unreachable("getABIInfo().computeInfo(*FI)");
+    getABIInfo().computeInfo(*FI);
   }
 
   return *FI;

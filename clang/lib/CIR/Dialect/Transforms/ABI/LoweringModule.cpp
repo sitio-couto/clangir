@@ -1,4 +1,6 @@
 #include "LoweringModule.h"
+#include "TargetInfo.h"
+#include "TargetLoweringInfo.h"
 
 namespace mlir {
 namespace cir {
@@ -19,7 +21,7 @@ createTargetLoweringInfo(LoweringModule &LM) {
     case llvm::Triple::Win32:
       llvm_unreachable("Windows ABI NYI");
     default:
-      llvm_unreachable("ABI NYI");
+      return createX86_64TargetLoweringInfo(LM, X86AVXABILevel::None);
     }
   }
   default:

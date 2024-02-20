@@ -18,7 +18,6 @@ protected:
 
 public:
   ABIInfo(LoweringTypes &LT) : LT(LT), RuntimeCC(llvm::CallingConv::C) {}
-
   virtual ~ABIInfo();
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;

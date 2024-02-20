@@ -17,6 +17,7 @@ struct MissingFeature {
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }
+  static bool Swift() { return true; }
 
   // CIR does not yet hold any form of qualified types. This information is used
   // for ABI lowering and is stripped from the IR until only the canonical type
