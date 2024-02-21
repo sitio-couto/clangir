@@ -7,6 +7,7 @@
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -79,14 +80,33 @@ public:
   }
 };
 
+/// Return true if the specified [start,end) bit range is known to either be off
+/// the end of the specified type or being in alignment padding.  The user type
+/// specified is known to be at most 128 bits in size, and have passed through
+/// X86_64ABIInfo::classify with a successful classification that put one of the
+/// two halves in the INTEGER class.
+///
+/// It is conservatively correct to return false.
+static bool BitsContainNoUserData(Type Ty, unsigned StartBit, unsigned EndBit,
+                                  void *Context) {
+  // // If the bytes being queried are off the end of the type, there is no user
+  // // data hiding here.  This handles analysis of builtins, vectors and other
+  // // types that don't contain interesting padding.
+  // unsigned TySize = (unsigned)Context.getTypeSize(Ty);
+  // if (TySize <= StartBit)
+  //   return true;
+
+  llvm_unreachable("Needs CIRContext::getTypeSize");
+}
+
 /// The ABI specifies that a value should be passed in an 8-byte GPR.  This
 /// means that we either have a scalar or we are talking about the high or low
-/// part of an up-to-16-byte struct.  This routine picks the best LLVM IR type
+/// part of an up-to-16-byte struct.  This routine picks the best CIR type
 /// to represent this, which may be i64 or may be anything else that the backend
 /// will pass in a GPR that works better (e.g. i8, %foo*, etc).
 ///
-/// PrefType is an LLVM IR type that corresponds to (part of) the IR type for
-/// the source type.  IROffset is an offset in bytes into the LLVM IR type that
+/// PrefType is an CIR type that corresponds to (part of) the IR type for
+/// the source type.  IROffset is an offset in bytes into the CIR type that
 /// the 8-byte value references.  PrefType may be null.
 ///
 /// SourceTy is the source-level type for the entire argument.  SourceOffset is
@@ -95,6 +115,33 @@ public:
 Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
                                            Type SourceTy,
                                            unsigned SourceOffset) const {
+  // If we're dealing with an un-offset CIR type, then it means that we're
+  // returning an 8-byte unit starting with it. See if we can safely use it.
+  if (IROffset == 0) {
+    // TODO(cir): Handle pointers.
+    assert(!DestTy.isa<PointerType>() && "Ptrs are NYI");
+    auto intTy = DestTy.cast<IntType>();
+
+    // Pointers and int64's always fill the 8-byte unit.
+    if (intTy.getWidth() == 64)
+      llvm_unreachable("NYI");
+
+    // If we have a 1/2/4-byte integer, we can use it only if the rest of the
+    // goodness in the source type is just tail padding.  This is allowed to
+    // kick in for struct {double,int} on the int, but not on
+    // struct{double,int,int} because we wouldn't return the second int.  We
+    // have to do this analysis on the source type because we can't depend on
+    // unions being lowered a specific way etc.
+    if (intTy.getWidth() == 8 || intTy.getWidth() == 16 ||
+        intTy.getWidth() == 32) {
+      unsigned BitWidth = intTy.getWidth();
+
+      if (BitsContainNoUserData(SourceTy, SourceOffset * 8 + BitWidth,
+                                SourceOffset * 8 + 64, nullptr))
+        llvm_unreachable("NYI");
+    }
+  }
+
   llvm_unreachable("NYI");
 }
 
