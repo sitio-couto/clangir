@@ -31,15 +31,66 @@ public:
 
     /// Not yet supported.
     Indirect,
+    IndirectAliased,
+    Expand,
   };
 
 private:
-  Kind kind;
   mlir::Type typeData;
+  union {
+    Type PaddingType;                 // canHavePaddingType()
+    Type UnpaddedCoerceAndExpandType; // isCoerceAndExpand()
+  };
+  struct DirectAttrInfo {
+    unsigned Offset;
+    unsigned Align;
+  };
+  union {
+    DirectAttrInfo DirectAttr; // isDirect() || isExtend()
+  };
+  Kind kind;
+  bool CanBeFlattened : 1; // isDirect()
 
 public:
   ABIArgInfo(Kind kind = Direct) : kind(kind){};
   ~ABIArgInfo() = default;
+
+  void setCanBeFlattened(bool Flatten) {
+    assert(isDirect() && "Invalid kind!");
+    CanBeFlattened = Flatten;
+  }
+
+  void setCoerceToType(Type T) {
+    assert(canHaveCoerceToType() && "Invalid kind!");
+    typeData = T;
+  }
+
+  void setDirectAlign(unsigned Align) {
+    assert((isDirect() || isExtend()) && "Not a direct or extend kind");
+    DirectAttr.Align = Align;
+  }
+
+  void setDirectOffset(unsigned Offset) {
+    assert((isDirect() || isExtend()) && "Not a direct or extend kind");
+    DirectAttr.Offset = Offset;
+  }
+
+  void setPaddingType(Type T) {
+    assert(canHavePaddingType());
+    PaddingType = T;
+  }
+
+  static ABIArgInfo getDirect(Type T = {}, unsigned Offset = 0,
+                              Type Padding = nullptr,
+                              bool CanBeFlattened = true, unsigned Align = 0) {
+    auto AI = ABIArgInfo(Direct);
+    AI.setCoerceToType(T);
+    AI.setPaddingType(Padding);
+    AI.setDirectOffset(Offset);
+    AI.setDirectAlign(Align);
+    AI.setCanBeFlattened(CanBeFlattened);
+    return AI;
+  }
 
   Type getCoerceToType() const {
     assert(canHaveCoerceToType() && "Invalid kind!");
@@ -50,6 +101,8 @@ public:
   bool isDirect() const { return kind == Direct; }
   bool isExtend() const { return kind == Extend; }
   bool isIndirect() const { return kind == Indirect; }
+  bool isIndirectAliased() const { return kind == IndirectAliased; }
+  bool isExpand() const { return kind == Expand; }
   bool isCoerceAndExpand() const {
     MissingFeature::isCoerceAndExpand();
     llvm_unreachable("NYI");
@@ -57,6 +110,11 @@ public:
 
   bool canHaveCoerceToType() const {
     return isDirect() || isExtend() || isCoerceAndExpand();
+  }
+
+  bool canHavePaddingType() const {
+    return isDirect() || isExtend() || isIndirect() || isIndirectAliased() ||
+           isExpand();
   }
 
   bool getCanBeFlattened() const {
