@@ -40,8 +40,9 @@ arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
 } // namespace
 
 LoweringTypes::LoweringTypes(LoweringModule &LM)
-    : LM(LM), ctx(LM.getContext()), CXXABI(LM.getCXXABI()),
-      TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()) {}
+    : LM(LM), context(LM.getContext()), CXXABI(LM.getCXXABI()),
+      TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()),
+      mlirContext(LM.getMLIRContext()) {}
 
 unsigned LoweringTypes::clangCallConvToLLVMCallConv(clang::CallingConv CC) {
   switch (CC) {
@@ -182,5 +183,5 @@ FuncType LoweringTypes::getFunctionType(const LoweringFunctionInfo &FI) {
 
   assert(MissingFeature::recursiveFunctionProcessing());
 
-  return FuncType::get(getContext(), ArgTypes, resultType, FI.isVariadic());
+  return FuncType::get(getMLIRContext(), ArgTypes, resultType, FI.isVariadic());
 }

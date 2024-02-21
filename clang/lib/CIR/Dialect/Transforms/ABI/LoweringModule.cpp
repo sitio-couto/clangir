@@ -1,4 +1,5 @@
 #include "LoweringModule.h"
+#include "CIRContext.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -50,9 +51,10 @@ createTargetLoweringInfo(LoweringModule &LM) {
   }
 }
 
-LoweringModule::LoweringModule(ModuleOp &module,
+LoweringModule::LoweringModule(CIRContext &C, ModuleOp &module,
                                const clang::TargetInfo &target)
-    : module(module), Target(target), ABI(createCXXABI(*this)), types(*this) {}
+    : context(C), module(module), Target(target), ABI(createCXXABI(*this)),
+      types(*this) {}
 
 const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   if (!TheTargetCodeGenInfo)

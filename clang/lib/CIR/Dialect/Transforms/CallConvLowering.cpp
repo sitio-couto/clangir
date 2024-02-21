@@ -10,6 +10,7 @@
 // reused by CIR ABI lowering, since it holds target-specific information.
 #include "../../../Basic/Targets.h"
 
+#include "ABI/CIRContext.h"
 #include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "mlir/IR/PatternMatch.h"
@@ -42,7 +43,10 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
 
-    LoweringModule state(module, *targetInfo);
+    auto context = CIRContext();
+    context.initBuiltinTypes(*targetInfo);
+
+    LoweringModule state(context, module, *targetInfo);
 
     const LoweringFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);

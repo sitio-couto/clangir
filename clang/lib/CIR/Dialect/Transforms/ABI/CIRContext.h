@@ -41,8 +41,23 @@ private:
   TypeInfo getTypeInfoImpl(const Type T) const;
 
   const clang::TargetInfo *Target = nullptr;
+  const clang::TargetInfo *AuxTarget = nullptr;
 
 public:
+  CIRContext();
+  CIRContext(const CIRContext &) = delete;
+  CIRContext &operator=(const CIRContext &) = delete;
+  ~CIRContext();
+
+  /// Initialize built-in types.
+  ///
+  /// This routine may only be invoked once for a given ASTContext object.
+  /// It is normally invoked after ASTContext construction.
+  ///
+  /// \param Target The target
+  void initBuiltinTypes(const clang::TargetInfo &Target,
+                        const clang::TargetInfo *AuxTarget = nullptr);
+
   //===--------------------------------------------------------------------===//
   //                         Type Sizing and Analysis
   //===--------------------------------------------------------------------===//

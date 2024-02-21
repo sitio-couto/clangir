@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CIRContext.h"
 #include "LoweringTypes.h"
 #include "MissingFeature.h"
 #include "TargetLoweringInfo.h"
@@ -21,6 +22,7 @@ namespace cir {
 /// Replaces CodeGenModule from Clang in ABI lowering.
 class LoweringModule {
 private:
+  CIRContext &context;
   ModuleOp module;
   const clang::TargetInfo &Target;
   mutable std::unique_ptr<TargetLoweringInfo> TheTargetCodeGenInfo;
@@ -29,14 +31,16 @@ private:
   LoweringTypes types;
 
 public:
-  LoweringModule(ModuleOp &module, const clang::TargetInfo &target);
+  LoweringModule(CIRContext &C, ModuleOp &module,
+                 const clang::TargetInfo &target);
   ~LoweringModule() = default;
 
   LoweringTypes &getTypes() { return types; }
-  MLIRContext *getContext() { return module.getContext(); }
+  CIRContext &getContext() { return context; }
   CIRCXXABI &getCXXABI() const { return *ABI; }
   const clang::TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
+  MLIRContext *getMLIRContext() { return module.getContext(); }
 
   const TargetLoweringInfo &getTargetLoweringInfo();
 

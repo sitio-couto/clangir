@@ -5,6 +5,10 @@
 namespace mlir {
 namespace cir {
 
+CIRContext::CIRContext() {}
+
+CIRContext::~CIRContext() {}
+
 TypeInfo CIRContext::getTypeInfo(Type T) const {
   // TODO(cir): Memoize type info.
 
@@ -49,6 +53,14 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
 
   assert(llvm::isPowerOf2_32(Align) && "Alignment must be power of 2");
   return TypeInfo(Width, Align, AlignRequirement);
+}
+
+void CIRContext::initBuiltinTypes(const clang::TargetInfo &Target,
+                                  const clang::TargetInfo *AuxTarget) {
+  assert((!this->Target || this->Target == &Target) &&
+         "Incorrect target reinitialization");
+  this->Target = &Target;
+  this->AuxTarget = AuxTarget;
 }
 
 } // namespace cir

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CIRCXXABI.h"
+#include "CIRContext.h"
 #include "mlir/IR/MLIRContext.h"
 #include "llvm/IR/CallingConv.h"
 
@@ -24,7 +25,7 @@ public:
 
   CIRCXXABI &getCXXABI() const;
 
-  MLIRContext *getContext() const;
+  CIRContext &getContext() const;
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;
 };

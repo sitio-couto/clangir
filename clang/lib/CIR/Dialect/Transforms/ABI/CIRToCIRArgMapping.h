@@ -1,8 +1,8 @@
 #pragma once
 
+#include "CIRContext.h"
 #include "LoweringFunctionInfo.h"
 #include "MissingFeature.h"
-#include "mlir/IR/MLIRContext.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/ErrorHandling.h"
 namespace mlir {
@@ -30,13 +30,13 @@ class CIRToCIRArgMapping {
   llvm::SmallVector<IRArgs, 8> ArgInfo;
 
 public:
-  CIRToCIRArgMapping(const MLIRContext *ctx, const LoweringFunctionInfo &FI,
+  CIRToCIRArgMapping(const CIRContext &context, const LoweringFunctionInfo &FI,
                      bool onlyRequiredArgs = false)
       : ArgInfo(onlyRequiredArgs ? FI.getNumRequiredArgs() : FI.arg_size()) {
-    construct(ctx, FI, onlyRequiredArgs);
+    construct(context, FI, onlyRequiredArgs);
   };
 
-  void construct(const MLIRContext *ctx, const LoweringFunctionInfo &FI,
+  void construct(const CIRContext &context, const LoweringFunctionInfo &FI,
                  bool onlyRequiredArgs = false) {
     unsigned IRArgNo = 0;
     bool SwapThisWithSRet = false;

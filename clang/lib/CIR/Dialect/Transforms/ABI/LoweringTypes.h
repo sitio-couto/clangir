@@ -2,6 +2,7 @@
 
 // Used to replace CodeGenTypes from Clang in ABI lowering.
 #include "ABIInfo.h"
+#include "CIRContext.h"
 #include "CIRToCIRArgMapping.h"
 #include "LoweringCall.h"
 #include "LoweringFunctionInfo.h"
@@ -24,15 +25,16 @@ class LoweringModule;
 class LoweringTypes {
 private:
   LoweringModule &LM;
-  MLIRContext *ctx;
+  CIRContext &context;
   CIRCXXABI &CXXABI;
 
   // This should not be moved earlier, since its initialization depends on some
   // of the previous reference members being already initialized
   const ABIInfo &TheABIInfo;
 
-  // FIXME(cir): We should be able to query this from LM.
-  MLIRContext *getContext() { return ctx; }
+  // Used to build types and other MLIR operations.
+  MLIRContext *mlirContext;
+
   const ABIInfo &getABIInfo() const { return TheABIInfo; }
 
 public:
@@ -40,7 +42,9 @@ public:
   ~LoweringTypes() = default;
 
   LoweringModule &getCGM() const { return LM; }
+  CIRContext &getContext() { return context; }
   CIRCXXABI &getCXXABI() const { return CXXABI; }
+  MLIRContext *getMLIRContext() { return mlirContext; }
 
   unsigned clangCallConvToLLVMCallConv(clang::CallingConv CC);
 

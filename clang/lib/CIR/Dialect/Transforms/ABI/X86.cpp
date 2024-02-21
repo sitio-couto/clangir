@@ -1,5 +1,6 @@
 #include "ABIInfo.h"
 #include "ABIInfoImpl.h"
+#include "CIRContext.h"
 #include "LoweringFunctionInfo.h"
 #include "LoweringModule.h"
 #include "LoweringTypes.h"
@@ -88,15 +89,15 @@ public:
 ///
 /// It is conservatively correct to return false.
 static bool BitsContainNoUserData(Type Ty, unsigned StartBit, unsigned EndBit,
-                                  void *Context) {
-  // // If the bytes being queried are off the end of the type, there is no user
-  // // data hiding here.  This handles analysis of builtins, vectors and other
-  // // types that don't contain interesting padding.
-  // unsigned TySize = (unsigned)Context.getTypeSize(Ty);
-  // if (TySize <= StartBit)
-  //   return true;
+                                  CIRContext &Context) {
+  // If the bytes being queried are off the end of the type, there is no user
+  // data hiding here.  This handles analysis of builtins, vectors and other
+  // types that don't contain interesting padding.
+  unsigned TySize = (unsigned)Context.getTypeSize(Ty);
+  if (TySize <= StartBit)
+    return true;
 
-  llvm_unreachable("Needs CIRContext::getTypeSize");
+  llvm_unreachable("NYI");
 }
 
 /// The ABI specifies that a value should be passed in an 8-byte GPR.  This
@@ -137,7 +138,7 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
       unsigned BitWidth = intTy.getWidth();
 
       if (BitsContainNoUserData(SourceTy, SourceOffset * 8 + BitWidth,
-                                SourceOffset * 8 + 64, nullptr))
+                                SourceOffset * 8 + 64, getContext()))
         llvm_unreachable("NYI");
     }
   }
