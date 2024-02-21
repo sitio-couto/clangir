@@ -12,15 +12,24 @@ class ItaniumCXXABI : public CIRCXXABI {
 
 public:
   ItaniumCXXABI(LoweringModule &CGM) : CIRCXXABI(CGM) {}
+
+  bool classifyReturnType(LoweringFunctionInfo &FI) const override;
 };
 
 } // namespace
 
+bool ItaniumCXXABI::classifyReturnType(LoweringFunctionInfo &FI) const {
+  const StructType RD = FI.getReturnType().dyn_cast<StructType>();
+  if (!RD)
+    return false;
+
+  llvm_unreachable("NYI");
+}
+
 CIRCXXABI *CreateItaniumCXXABI(LoweringModule &CGM) {
   switch (CGM.getCXXABIKind()) {
   case clang::TargetCXXABI::GenericItanium:
-    if (CGM.getTargetInfo().getTriple().getArch() ==
-        llvm::Triple::le32) {
+    if (CGM.getTargetInfo().getTriple().getArch() == llvm::Triple::le32) {
       llvm_unreachable("NYI");
     }
     return new ItaniumCXXABI(CGM);
