@@ -8,6 +8,7 @@ add_clang_library(ABILowering
   TargetInfo.cpp
   ItaniumCXXABI.cpp
   CIRCXXABI.cpp
+  CIRContext.cpp
 
   DEPENDS
 

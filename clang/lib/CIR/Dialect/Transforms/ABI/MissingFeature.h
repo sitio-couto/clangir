@@ -32,6 +32,11 @@ struct MissingFeature {
   // implemented in CIR, and I'm not sure if it need to be.
   static bool fnInfoProfile() { return true; }
 
+  // Clang uses the concept of "type classes" to distinguish between different
+  // kinds of types, such as builtins, function, vectors, arrays, etc. This
+  // distinction is not yet implemented in CIR.
+  static bool typeClass() { return true; }
+
   // Features that will eventually be implemented.
   static bool isCoerceAndExpand() { return true; }
   static bool sretArgument() { return true; }
