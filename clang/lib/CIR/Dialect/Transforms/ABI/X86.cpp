@@ -6,6 +6,7 @@
 #include "MissingFeature.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -99,6 +100,38 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
 
 void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
                              bool isNamedArg, bool IsRegCall) const {
+  // FIXME: This code can be simplified by introducing a simple value class for
+  // Class pairs with appropriate constructor methods for the various
+  // situations.
+
+  // FIXME: Some of the split computations are wrong; unaligned vectors
+  // shouldn't be passed in registers for example, so there is no chance they
+  // can straddle an eightbyte. Verify & simplify.
+
+  Lo = Hi = NoClass;
+
+  Class &Current = OffsetBase < 64 ? Lo : Hi;
+  Current = Memory;
+
+  // FIXME(cir): The condition below should check if the type is a buitin type.
+  // CIR does not have this information yet. To prevent errors, the assertion
+  // below was added.
+  assert(MissingFeature::isBuiltinType());
+  assert(llvm::isa<IntType>(Ty));
+
+  if (llvm::isa<IntType>(Ty)) {
+    // FIXME(cir): Clang's BuildingType::Kind allow comparisons (GT, LT, etc).
+    // We should implement this in CIR to simplify the conditions below. BTW,
+    // I'm not sure if the comparisons below are truly equivalent to the ones in
+    // Clang.
+    if (Ty.isa<IntType>()) { // k >= Bool && k <= LongLong
+      Current = Integer;
+    }
+    // FIXME: _Decimal32 and _Decimal64 are SSE.
+    // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
+    return;
+  }
+
   llvm_unreachable("NYI");
 }
 
