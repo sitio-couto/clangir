@@ -1,9 +1,30 @@
 #include "LoweringModule.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
 namespace cir {
+
+static CIRCXXABI *createCXXABI(LoweringModule &CGM) {
+  switch (CGM.getCXXABIKind()) {
+  case clang::TargetCXXABI::AppleARM64:
+  case clang::TargetCXXABI::Fuchsia:
+  case clang::TargetCXXABI::GenericAArch64:
+  case clang::TargetCXXABI::GenericARM:
+  case clang::TargetCXXABI::iOS:
+  case clang::TargetCXXABI::WatchOS:
+  case clang::TargetCXXABI::GenericMIPS:
+  case clang::TargetCXXABI::GenericItanium:
+  case clang::TargetCXXABI::WebAssembly:
+  case clang::TargetCXXABI::XL:
+    return CreateItaniumCXXABI(CGM);
+  case clang::TargetCXXABI::Microsoft:
+    llvm_unreachable("Windows ABI NYI");
+  }
+
+  llvm_unreachable("invalid C++ ABI kind");
+}
 
 static std::unique_ptr<TargetLoweringInfo>
 createTargetLoweringInfo(LoweringModule &LM) {
@@ -31,7 +52,7 @@ createTargetLoweringInfo(LoweringModule &LM) {
 
 LoweringModule::LoweringModule(ModuleOp &module,
                                const clang::TargetInfo &target)
-    : module(module), Target(target), types(*this) {}
+    : module(module), Target(target), ABI(createCXXABI(*this)), types(*this) {}
 
 const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   if (!TheTargetCodeGenInfo)

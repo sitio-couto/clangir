@@ -6,6 +6,7 @@ add_clang_library(ABILowering
   X86.cpp
   ABIInfoImpl.cpp
   TargetInfo.cpp
+  ItaniumCXXABI.cpp
 
   DEPENDS
 

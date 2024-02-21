@@ -39,6 +39,7 @@ struct MissingFeature {
   static bool regCall() { return true; }
   static bool chainCall() { return true; }
   static bool vector() { return true; }
+  static bool langOpts() { return true; }
 };
 
 } // namespace cir
