@@ -24,6 +24,10 @@ struct MissingFeature {
   // will be necessary for CIR.
   static bool externalASTSource() { return true; }
 
+  // ABI codegen has several diagnostics that are not yet implemented in CIR.
+  // These involve several warning messages which might not make sense in CIR.
+  static bool diagnostics() { return true; }
+
   // CIR does not have enough information to easily distinguish certain
   // properties between language elements. For example, it can't distinguish
   // functions (ctor, dtor, method, etc), it does not carry attributes
@@ -38,23 +42,39 @@ struct MissingFeature {
   static bool isCXXRecord() { return true; }
   static bool recordBasesIterator() { return true; }
   static bool canPassInRegisters() { return true; }
-  static bool hasFlexibleArrayMember() { return true; }
   static bool alignmentAttribute() { return true; }
   static bool MSStructAttr() { return true; }
   static bool packedAttr() { return true; }
   static bool alignMac68kAttr() { return true; }
   static bool alignNaturalAttr() { return true; }
   static bool maxFieldAlignmentAttr() { return true; }
+  static bool noUniqueAddressAttr() { return true; }
 
-  // Missing queries features in CIR types.
+  // Abstraction to be created in CIR (not necessarily through interfaces).
+  static bool fieldDeclAbs() { return true; } // Record field of any type.
+  static bool qualTypeAbs() { return true; }  // Any qualified type.
+
+  // Information lost due to CIR's low-level nature.
+  static bool isBitField() { return true; }
+
+  // Missing queries in CIR types.
   static bool getMaxAlignment() { return true; }
-  
+  static bool isPotentiallyOverlapping() { return true; }
+
   // Missing queries for CIR CXX record types.
+  static bool hasFlexibleArrayMember() { return true; }
   static bool isDynamicClass() { return true; }
+  static bool mayInsertExtraPadding() { return true; }
+  static bool isEmptyCXX11() { return true; }
+  static bool isPODTR1() { return true; }
+
+  // Missing queries for CIR array types.
+  static bool isIncomplete() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }
   static bool Swift() { return true; }
+  static bool ObjC() { return true; }
 
   // CIR does not yet hold any form of qualified types. This information is used
   // for ABI lowering and is stripped from the IR until only the canonical type

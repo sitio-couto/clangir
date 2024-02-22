@@ -82,7 +82,7 @@ private:
 public:
   const clang::TargetInfo &getTargetInfo() const { return *Target; }
 
-  const clang::LangOptions& getLangOpts() const { return LangOpts; }
+  const clang::LangOptions &getLangOpts() const { return LangOpts; }
 
   MLIRContext *getMLIRContext() const { return MLIRCtx; }
 
@@ -98,6 +98,9 @@ public:
 
   /// Return the size of the character type, in bits.
   uint64_t getCharWidth() const { return getTypeSize(CharTy); }
+
+  /// Convert a size in bits to a size in characters.
+  clang::CharUnits toCharUnitsFromBits(int64_t BitSize) const;
 
   /// Convert a size in characters to a size in bits.
   int64_t toBits(clang::CharUnits CharSize) const;

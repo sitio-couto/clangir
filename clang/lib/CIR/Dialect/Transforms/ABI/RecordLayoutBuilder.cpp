@@ -1,5 +1,7 @@
 #include "CIRContext.h"
 #include "MissingFeature.h"
+#include "mlir/IR/Location.h"
+#include "clang/AST/CharUnits.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -32,6 +34,9 @@ public:
       : Context(Context), CharWidth(Context.getCharWidth()), Class(Class) {
     ComputeEmptySubobjectSizes();
   }
+
+  /// Return whether a field can be placed at the given offset.
+  bool canPlaceFieldAtOffset(const Type Ty, clang::CharUnits Offset);
 };
 
 void EmptySubobjectMap::ComputeEmptySubobjectSizes() {
@@ -50,6 +55,11 @@ void EmptySubobjectMap::ComputeEmptySubobjectSizes() {
     // TODO(cir): Handle nested record types.
     llvm_unreachable("NYI");
   }
+}
+
+bool EmptySubobjectMap::canPlaceFieldAtOffset(const Type Ty,
+                                              clang::CharUnits Offset) {
+  llvm_unreachable("NYI");
 }
 
 //===-----------------------------------------------------------------------==//
@@ -165,8 +175,36 @@ public:
 
   void layout(const StructType D);
 
+  void layoutFields(const StructType D);
+  void layoutField(const Type Ty, bool InsertExtraPadding);
+
+  void UpdateAlignment(clang::CharUnits NewAlignment,
+                       clang::CharUnits UnpackedNewAlignment,
+                       clang::CharUnits PreferredAlignment);
+
+  void checkFieldPadding(uint64_t Offset, uint64_t UnpaddedOffset,
+                         uint64_t UnpackedOffset, unsigned UnpackedAlign,
+                         bool isPacked, const Type Ty);
+
+  uint64_t getSizeInBits() const { return Size; }
+
+  void setSize(clang::CharUnits NewSize) { Size = Context.toBits(NewSize); }
+  void setSize(uint64_t NewSize) { Size = NewSize; }
+
+  clang::CharUnits getDataSize() const {
+    assert(DataSize % Context.getCharWidth() == 0);
+    return Context.toCharUnitsFromBits(DataSize);
+  }
+
   /// Initialize record layout for the given record decl.
   void initializeLayout(const Type Ty);
+
+  uint64_t getDataSizeInBits() const { return DataSize; }
+
+  void setDataSize(clang::CharUnits NewSize) {
+    DataSize = Context.toBits(NewSize);
+  }
+  void setDataSize(uint64_t NewSize) { DataSize = NewSize; }
 };
 
 void ItaniumRecordLayoutBuilder::layout(const StructType RT) {
@@ -175,7 +213,7 @@ void ItaniumRecordLayoutBuilder::layout(const StructType RT) {
   // Lay out the vtable and the non-virtual bases.
   assert(MissingFeature::isCXXRecord() && MissingFeature::isDynamicClass());
 
-  // LayoutFields(RD);
+  layoutFields(RT);
 
   // NonVirtualSize = Context.toCharUnitsFromBits(
   //     llvm::alignTo(getSizeInBits(),
@@ -208,16 +246,16 @@ void ItaniumRecordLayoutBuilder::initializeLayout(const mlir::Type Ty) {
   // and forces all structures to have 2-byte alignment. The IBM docs on it
   // allude to additional (more complicated) semantics, especially with regard
   // to bit-fields, but gcc appears not to follow that.
-  if (MissingFeature::alignMac68kAttr()) {
+  if (!MissingFeature::alignMac68kAttr()) {
     llvm_unreachable("NYI");
   } else {
-    if (MissingFeature::alignNaturalAttr())
+    if (!MissingFeature::alignNaturalAttr())
       llvm_unreachable("NYI");
 
-    if (MissingFeature::maxFieldAlignmentAttr())
+    if (!MissingFeature::maxFieldAlignmentAttr())
       llvm_unreachable("NYI");
 
-    if (MissingFeature::getMaxAlignment())
+    if (!MissingFeature::getMaxAlignment())
       llvm_unreachable("NYI");
   }
 
@@ -226,11 +264,253 @@ void ItaniumRecordLayoutBuilder::initializeLayout(const mlir::Type Ty) {
 
   // If there is an external AST source, ask it for the various offsets.
   if (const auto RT = Ty.dyn_cast<StructType>()) {
-    if (MissingFeature::externalASTSource()) {
+    if (!MissingFeature::externalASTSource()) {
       llvm_unreachable("NYI");
     }
   }
 }
+
+void ItaniumRecordLayoutBuilder::layoutField(const Type D,
+                                             bool InsertExtraPadding) {
+  // auto FieldClass = D.dyn_cast<StructType>();
+  assert(MissingFeature::isPotentiallyOverlapping() &&
+         MissingFeature::isEmptyCXX11());
+  bool IsOverlappingEmptyField = false; // FIXME(cir): Needs more features.
+
+  clang::CharUnits FieldOffset = (IsUnion || IsOverlappingEmptyField)
+                                     ? clang::CharUnits::Zero()
+                                     : getDataSize();
+
+  const bool DefaultsToAIXPowerAlignment =
+      Context.getTargetInfo().defaultsToAIXPowerAlignment();
+  bool FoundFirstNonOverlappingEmptyFieldForAIX = false;
+  if (DefaultsToAIXPowerAlignment && !HandledFirstNonOverlappingEmptyField) {
+    llvm_unreachable("NYI");
+  }
+
+  assert(MissingFeature::isBitField());
+
+  uint64_t UnpaddedFieldOffset = getDataSizeInBits() - UnfilledBitsInLastUnit;
+  // Reset the unfilled bits.
+  UnfilledBitsInLastUnit = 0;
+  LastBitfieldStorageUnitSize = 0;
+
+  llvm::Triple Target = Context.getTargetInfo().getTriple();
+
+  AlignRequirementKind AlignRequirement = AlignRequirementKind::None;
+  clang::CharUnits FieldSize;
+  clang::CharUnits FieldAlign;
+  // The amount of this class's dsize occupied by the field.
+  // This is equal to FieldSize unless we're permitted to pack
+  // into the field's tail padding.
+  clang::CharUnits EffectiveFieldSize;
+
+  auto setDeclInfo = [&](bool IsIncompleteArrayType) {
+    llvm_unreachable("NYI");
+  };
+
+  if (D.isa<ArrayType>() && D.cast<ArrayType>().getSize() == 0) {
+    llvm_unreachable("NYI");
+  } else {
+    setDeclInfo(false /* IsIncompleteArrayType */);
+
+    if (MissingFeature::isPotentiallyOverlapping())
+      llvm_unreachable("NYI");
+
+    if (IsMsStruct)
+      llvm_unreachable("NYI");
+  }
+
+  assert(MissingFeature::packedAttr() && MissingFeature::isPODTR1());
+  bool FieldPacked = false; // FIXME(cir): Needs more features.
+
+  // When used as part of a typedef, or together with a 'packed' attribute, the
+  // 'aligned' attribute can be used to decrease alignment. In that case, it
+  // overrides any computed alignment we have, and there is no need to upgrade
+  // the alignment.
+  auto alignedAttrCanDecreaseAIXAlignment = [AlignRequirement, FieldPacked] {
+    // Enum alignment sources can be safely ignored here, because this only
+    // helps decide whether we need the AIX alignment upgrade, which only
+    // applies to floating-point types.
+    return AlignRequirement == AlignRequirementKind::RequiredByTypedef ||
+           (AlignRequirement == AlignRequirementKind::RequiredByRecord &&
+            FieldPacked);
+  };
+
+  // The AIX `power` alignment rules apply the natural alignment of the
+  // "first member" if it is of a floating-point data type (or is an aggregate
+  // whose recursively "first" member or element is such a type). The alignment
+  // associated with these types for subsequent members use an alignment value
+  // where the floating-point data type is considered to have 4-byte alignment.
+  //
+  // For the purposes of the foregoing: vtable pointers, non-empty base classes,
+  // and zero-width bit-fields count as prior members; members of empty class
+  // types marked `no_unique_address` are not considered to be prior members.
+  clang::CharUnits PreferredAlign = FieldAlign;
+  if (DefaultsToAIXPowerAlignment && !alignedAttrCanDecreaseAIXAlignment() &&
+      (FoundFirstNonOverlappingEmptyFieldForAIX || IsNaturalAlign)) {
+    llvm_unreachable("NYI");
+  }
+
+  // The align if the field is not packed. This is to check if the attribute
+  // was unnecessary (-Wpacked).
+  clang::CharUnits UnpackedFieldAlign = FieldAlign;
+  clang::CharUnits PackedFieldAlign = clang::CharUnits::One();
+  clang::CharUnits UnpackedFieldOffset = FieldOffset;
+  // clang::CharUnits OriginalFieldAlign = UnpackedFieldAlign;
+
+  assert(MissingFeature::maxFieldAlignmentAttr());
+  clang::CharUnits MaxAlignmentInChars = clang::CharUnits::Zero();
+  PackedFieldAlign = std::max(PackedFieldAlign, MaxAlignmentInChars);
+  PreferredAlign = std::max(PreferredAlign, MaxAlignmentInChars);
+  UnpackedFieldAlign = std::max(UnpackedFieldAlign, MaxAlignmentInChars);
+
+  // The maximum field alignment overrides the aligned attribute.
+  if (!MaxFieldAlignment.isZero()) {
+    llvm_unreachable("NYI");
+  }
+
+  if (!FieldPacked)
+    FieldAlign = UnpackedFieldAlign;
+  if (DefaultsToAIXPowerAlignment)
+    llvm_unreachable("NYI");
+  if (FieldPacked) {
+    llvm_unreachable("NYI");
+  }
+
+  clang::CharUnits AlignTo =
+      !DefaultsToAIXPowerAlignment ? FieldAlign : PreferredAlign;
+  // Round up the current record size to the field's alignment boundary.
+  FieldOffset = FieldOffset.alignTo(AlignTo);
+  UnpackedFieldOffset = UnpackedFieldOffset.alignTo(UnpackedFieldAlign);
+
+  if (UseExternalLayout) {
+    llvm_unreachable("NYI");
+  } else {
+    if (!IsUnion && EmptySubobjects) {
+      // Check if we can place the field at this offset.
+      while (/*!EmptySubobjects->CanPlaceFieldAtOffset(D, FieldOffset)*/
+             false) {
+        llvm_unreachable("NYI");
+      }
+    }
+  }
+
+  // Place this field at the current location.
+  FieldOffsets.push_back(Context.toBits(FieldOffset));
+
+  if (!UseExternalLayout)
+    checkFieldPadding(Context.toBits(FieldOffset), UnpaddedFieldOffset,
+                      Context.toBits(UnpackedFieldOffset),
+                      Context.toBits(UnpackedFieldAlign), FieldPacked, D);
+
+  if (InsertExtraPadding) {
+    llvm_unreachable("NYI");
+  }
+
+  // Reserve space for this field.
+  if (!IsOverlappingEmptyField) {
+    // uint64_t EffectiveFieldSizeInBits = Context.toBits(EffectiveFieldSize);
+    if (IsUnion)
+      llvm_unreachable("NYI");
+    else
+      setDataSize(FieldOffset + EffectiveFieldSize);
+
+    PaddedFieldSize = std::max(PaddedFieldSize, FieldOffset + FieldSize);
+    setSize(std::max(getSizeInBits(), getDataSizeInBits()));
+  } else {
+    llvm_unreachable("NYI");
+  }
+
+  // Remember max struct/class ABI-specified alignment.
+  UnadjustedAlignment = std::max(UnadjustedAlignment, FieldAlign);
+  UpdateAlignment(FieldAlign, UnpackedFieldAlign, PreferredAlign);
+
+  // For checking the alignment of inner fields against
+  // the alignment of its parent record.
+  assert(MissingFeature::fieldDeclAbs());
+  // FIXME(cir): We need to track the parent record of the current type being
+  // laid out. A regular mlir::Type has not way of doing this. In fact, we will
+  // likely need an external abstraction, as I don't think this is possible with
+  // just the field type.
+
+  if (Packed && !FieldPacked && PackedFieldAlign < FieldAlign)
+    llvm_unreachable("NYI");
+}
+
+void ItaniumRecordLayoutBuilder::layoutFields(const StructType D) {
+  // Layout each field, for now, just sequentially, respecting alignment.  In
+  // the future, this will need to be tweakable by targets.
+  assert(MissingFeature::mayInsertExtraPadding() &&
+         !Context.getLangOpts().SanitizeAddressFieldPadding);
+  bool InsertExtraPadding = false;
+  assert(MissingFeature::hasFlexibleArrayMember());
+  bool HasFlexibleArrayMember = false;
+  for (const auto FT : D.getMembers()) {
+    layoutField(FT, InsertExtraPadding && (FT != D.getMembers().back() ||
+                                           !HasFlexibleArrayMember));
+  }
+}
+
+void ItaniumRecordLayoutBuilder::UpdateAlignment(
+    clang::CharUnits NewAlignment, clang::CharUnits UnpackedNewAlignment,
+    clang::CharUnits PreferredNewAlignment) {
+  // The alignment is not modified when using 'mac68k' alignment or when
+  // we have an externally-supplied layout that also provides overall alignment.
+  if (IsMac68kAlign || (UseExternalLayout && !InferAlignment))
+    return;
+
+  if (NewAlignment > Alignment) {
+    assert(llvm::isPowerOf2_64(NewAlignment.getQuantity()) &&
+           "Alignment not a power of 2");
+    Alignment = NewAlignment;
+  }
+
+  if (UnpackedNewAlignment > UnpackedAlignment) {
+    assert(llvm::isPowerOf2_64(UnpackedNewAlignment.getQuantity()) &&
+           "Alignment not a power of 2");
+    UnpackedAlignment = UnpackedNewAlignment;
+  }
+
+  if (PreferredNewAlignment > PreferredAlignment) {
+    assert(llvm::isPowerOf2_64(PreferredNewAlignment.getQuantity()) &&
+           "Alignment not a power of 2");
+    PreferredAlignment = PreferredNewAlignment;
+  }
+}
+
+void ItaniumRecordLayoutBuilder::checkFieldPadding(
+    uint64_t Offset, uint64_t UnpaddedOffset, uint64_t UnpackedOffset,
+    unsigned UnpackedAlign, bool isPacked, const Type Ty) {
+  // We let objc ivars without warning, objc interfaces generally are not used
+  // for padding tricks.
+  if (!MissingFeature::ObjC())
+    llvm_unreachable("NYI");
+
+  // Don't warn about structs created without a SourceLocation.  This can
+  // be done by clients of the AST, such as codegen.
+  // FIXME(cir): Should this be skiped in CIR?
+
+  unsigned CharBitNum = Context.getTargetInfo().getCharWidth();
+
+  // Warn if padding was introduced to the struct/class.
+  if (!IsUnion && Offset > UnpaddedOffset) {
+    unsigned PadSize = Offset - UnpaddedOffset;
+    // bool InBits = true;
+    if (PadSize % CharBitNum == 0) {
+      PadSize = PadSize / CharBitNum;
+      // InBits = false;
+    }
+    assert(MissingFeature::diagnostics());
+  }
+  if (isPacked && Offset != UnpackedOffset) {
+    HasPackedField = true;
+  }
+}
+
+//===-----------------------------------------------------------------------==//
+// Misc. Helper Functions
+//===----------------------------------------------------------------------===//
 
 bool isMsLayout(const CIRContext &Context) {
   return Context.getTargetInfo().getCXXABI().isMicrosoft();
@@ -258,7 +538,7 @@ const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
     assert(MissingFeature::isCXXRecord());
     EmptySubobjectMap EmptySubobjects(*this, RT);
     ItaniumRecordLayoutBuilder Builder(*this, &EmptySubobjects);
-    // Builder.Layout(RD);
+    Builder.layout(RT);
 
     llvm_unreachable("NYI");
   }
