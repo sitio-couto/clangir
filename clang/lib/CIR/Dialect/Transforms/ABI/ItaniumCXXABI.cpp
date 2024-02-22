@@ -14,6 +14,13 @@ public:
   ItaniumCXXABI(LoweringModule &CGM) : CIRCXXABI(CGM) {}
 
   bool classifyReturnType(LoweringFunctionInfo &FI) const override;
+
+  // FIXME(cir): This expects a CXXRecordDecl! Not any record type.
+  RecordArgABI getRecordArgABI(const StructType RD) const override {
+    // If C++ prohibits us from making a copy, pass by address.
+    assert(MissingFeature::canPassInRegisters());
+    return RAA_Default;
+  }
 };
 
 } // namespace

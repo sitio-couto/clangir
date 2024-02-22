@@ -199,7 +199,7 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   // CIR does not have this information yet. To prevent errors, the assertion
   // below was added.
   assert(MissingFeature::isBuiltinType());
-  assert(llvm::isa<IntType>(Ty));
+  assert(llvm::isa<IntType>(Ty) || llvm::isa<StructType>(Ty));
 
   if (llvm::isa<IntType>(Ty)) {
     // FIXME(cir): Clang's BuildingType::Kind allow comparisons (GT, LT, etc).
@@ -212,6 +212,37 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
     return;
+  }
+
+  if (const auto RT = Ty.dyn_cast<StructType>()) {
+    uint64_t Size = getContext().getTypeSize(Ty);
+
+    // AMD64-ABI 3.2.3p2: Rule 1. If the size of an object is larger
+    // than eight eightbytes, ..., it has class MEMORY.
+    if (Size > 512)
+      llvm_unreachable("NYI");
+
+    // AMD64-ABI 3.2.3p2: Rule 2. If a C++ object has either a non-trivial
+    // copy constructor or a non-trivial destructor, it is passed by invisible
+    // reference.
+    if (getRecordArgABI(RT, getCXXABI()))
+      llvm_unreachable("NYI");
+
+    // Assume variable sized types are passed in memory.
+    if (!MissingFeature::hasFlexibleArrayMember())
+      llvm_unreachable("NYI");
+
+    const auto &Layout = getContext().getCIRRecordLayout(Ty);
+
+    // Reset Lo class, this will be recomputed.
+    Current = NoClass;
+
+    // If this is a C++ record, classify the bases first.
+    assert(MissingFeature::isCXXRecord() &&
+           MissingFeature::recordBasesIterator());
+
+    // Classify the fields one at a time, merging the results.
+    llvm_unreachable("NYI");
   }
 
   llvm_unreachable("NYI");
@@ -272,6 +303,11 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(Type Ty, unsigned freeIntRegs,
                                                unsigned &neededSSE,
                                                bool isNamedArg,
                                                bool IsRegCall = false) const {
+  Ty = useFirstFieldIfTransparentUnion(Ty);
+
+  X86_64ABIInfo::Class Lo, Hi;
+  classify(Ty, 0, Lo, Hi, isNamedArg, IsRegCall);
+
   llvm_unreachable("NYI");
 }
 

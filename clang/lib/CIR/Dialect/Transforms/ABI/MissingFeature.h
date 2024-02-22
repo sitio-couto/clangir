@@ -20,6 +20,8 @@ struct MissingFeature {
   static bool isBuiltinType() { return true; }
   static bool isCXXRecord() { return true; }
   static bool recordBasesIterator() { return true; }
+  static bool canPassInRegisters() { return true; }
+  static bool hasFlexibleArrayMember() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }
