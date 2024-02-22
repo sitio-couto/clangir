@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CIRRecordLayout.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Types.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
@@ -47,6 +48,9 @@ private:
   const clang::TargetInfo *Target = nullptr;
   const clang::TargetInfo *AuxTarget = nullptr;
 
+  /// MLIR context to be used when creating types.
+  MLIRContext *MLIRCtx;
+
   /// The language options used to create the AST associated with
   /// this ASTContext object.
   clang::LangOptions &LangOpts;
@@ -58,7 +62,7 @@ private:
   Type CharTy;
 
 public:
-  CIRContext(clang::LangOptions &LOpts);
+  CIRContext(MLIRContext *MLIRCtx, clang::LangOptions &LOpts);
   CIRContext(const CIRContext &) = delete;
   CIRContext &operator=(const CIRContext &) = delete;
   ~CIRContext();
@@ -79,6 +83,8 @@ public:
   const clang::TargetInfo &getTargetInfo() const { return *Target; }
 
   const clang::LangOptions& getLangOpts() const { return LangOpts; }
+
+  MLIRContext *getMLIRContext() const { return MLIRCtx; }
 
   //===--------------------------------------------------------------------===//
   //                         Type Sizing and Analysis

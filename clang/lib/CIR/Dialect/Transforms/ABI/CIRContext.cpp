@@ -1,6 +1,7 @@
 #include "CIRContext.h"
 #include "CIRRecordLayout.h"
 #include "MissingFeature.h"
+#include "mlir/IR/MLIRContext.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -8,7 +9,8 @@
 namespace mlir {
 namespace cir {
 
-CIRContext::CIRContext(clang::LangOptions &LOpts) : LangOpts(LOpts) {}
+CIRContext::CIRContext(MLIRContext *MLIRCtx, clang::LangOptions &LOpts)
+    : MLIRCtx(MLIRCtx), LangOpts(LOpts) {}
 
 CIRContext::~CIRContext() {}
 
@@ -91,6 +93,14 @@ int64_t CIRContext::toBits(clang::CharUnits CharSize) const {
 
 void CIRContext::initBuiltinType(Type &Ty, clang::BuiltinType::Kind K) {
   // NOTE(cir): Clang does more stuff here. Not sure if we need to do the same.
+  assert(MissingFeature::qualifiedTypes());
+  switch (K) {
+  case clang::BuiltinType::Char_S:
+    Ty = IntType::get(getMLIRContext(), 8, true);
+    break;
+  default:
+    llvm_unreachable("NYI");
+  }
   Types.push_back(Ty);
 }
 
@@ -105,7 +115,7 @@ void CIRContext::initBuiltinTypes(const clang::TargetInfo &Target,
   if (LangOpts.CharIsSigned)
     initBuiltinType(CharTy, clang::BuiltinType::Char_S);
   else
-    initBuiltinType(CharTy, clang::BuiltinType::Char_U);
+    llvm_unreachable("NYI");
 }
 
 } // namespace cir

@@ -49,7 +49,7 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
     assert(MissingFeature::langOptions());
     clang::LangOptions langOpts;
 
-    auto context = CIRContext(langOpts);
+    auto context = CIRContext(module.getContext(), langOpts);
     context.initBuiltinTypes(*targetInfo);
 
     LoweringModule state(context, module, *targetInfo);
