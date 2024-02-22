@@ -2,6 +2,7 @@
 
 #include "CIRRecordLayout.h"
 #include "mlir/IR/Types.h"
+#include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 
@@ -39,13 +40,25 @@ struct TypeInfo {
 class CIRContext : public llvm::RefCountedBase<CIRContext> {
 
 private:
+  mutable SmallVector<Type, 0> Types;
+
   TypeInfo getTypeInfoImpl(const Type T) const;
 
   const clang::TargetInfo *Target = nullptr;
   const clang::TargetInfo *AuxTarget = nullptr;
 
+  /// The language options used to create the AST associated with
+  /// this ASTContext object.
+  clang::LangOptions &LangOpts;
+
+  //===--------------------------------------------------------------------===//
+  //                         Built-in Types
+  //===--------------------------------------------------------------------===//
+
+  Type CharTy;
+
 public:
-  CIRContext();
+  CIRContext(clang::LangOptions &LOpts);
   CIRContext(const CIRContext &) = delete;
   CIRContext &operator=(const CIRContext &) = delete;
   ~CIRContext();
@@ -59,6 +72,12 @@ public:
   void initBuiltinTypes(const clang::TargetInfo &Target,
                         const clang::TargetInfo *AuxTarget = nullptr);
 
+private:
+  void initBuiltinType(Type &R, clang::BuiltinType::Kind K);
+
+public:
+  const clang::TargetInfo &getTargetInfo() const { return *Target; }
+
   //===--------------------------------------------------------------------===//
   //                         Type Sizing and Analysis
   //===--------------------------------------------------------------------===//
@@ -68,6 +87,12 @@ public:
 
   /// Return the size of the specified (complete) type \p T, in bits.
   uint64_t getTypeSize(Type T) const { return getTypeInfo(T).Width; }
+
+  /// Return the size of the character type, in bits.
+  uint64_t getCharWidth() const { return getTypeSize(CharTy); }
+
+  /// Convert a size in characters to a size in bits.
+  int64_t toBits(clang::CharUnits CharSize) const;
 
   /// Get or compute information about the layout of the specified
   /// record (struct/union/class) \p D, which indicates its size and field

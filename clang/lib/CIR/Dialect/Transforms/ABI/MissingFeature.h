@@ -5,13 +5,26 @@ namespace cir {
 
 struct MissingFeature {
 
+  // CIR does not yet have a concept of language options. This is used to
+  // control the behavior of the compiler in various areas. When dealing with
+  // ABI, some options might affect the behaviour.
+  static bool langOptions() { return true; }
+
   // Clang CodeGenTypes tracks the set of function being processed. This
   // aparently improves the generated code. However, I'm not sure if we need
   // this feature here since CIR's codegen is already over.
   static bool recursiveFunctionProcessing() { return true; }
 
-  // CIR does not have enough information to easily distinguish different kinds
-  // of functions (ctor, dtor, method, etc).
+  // Clang uses several abstractions to facilitate handling of types. A few
+  // examples are QualType, TagType, CXXRecordDecl, etc. CIR should have its
+  // own abstractions mirroring these. It would facilitate codegen parity.
+  static bool tagTypeClass() { return true; }
+
+  // CIR does not have enough information to easily distinguish certain
+  // properties between language elements. For example, it can't distinguish
+  // functions (ctor, dtor, method, etc), it does not carry attributes
+  // (__attribute__((...))), it does not track a class's base type, among other
+  // details.
   static bool isCtorOrDtor() { return true; }
   static bool isMethod() { return true; }
   // NOTE(cir): This might not be necessary, since Clang queries Enums to find
@@ -22,6 +35,7 @@ struct MissingFeature {
   static bool recordBasesIterator() { return true; }
   static bool canPassInRegisters() { return true; }
   static bool hasFlexibleArrayMember() { return true; }
+  static bool alignmentAttribute() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }

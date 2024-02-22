@@ -13,11 +13,13 @@
 #include "ABI/CIRContext.h"
 #include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
+#include "ABI/MissingFeature.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define GEN_PASS_DEF_CALLCONVLOWERING
 #include "clang/CIR/Dialect/Passes.h.inc"
@@ -43,7 +45,11 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
 
-    auto context = CIRContext();
+    // FIXME(cir): This just uses the default language options.
+    assert(MissingFeature::langOptions());
+    clang::LangOptions langOpts;
+
+    auto context = CIRContext(langOpts);
     context.initBuiltinTypes(*targetInfo);
 
     LoweringModule state(context, module, *targetInfo);
