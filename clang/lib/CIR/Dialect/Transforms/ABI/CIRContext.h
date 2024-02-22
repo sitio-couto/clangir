@@ -38,6 +38,20 @@ struct TypeInfo {
   }
 };
 
+struct TypeInfoChars {
+  clang::CharUnits Width;
+  clang::CharUnits Align;
+  AlignRequirementKind AlignRequirement;
+
+  TypeInfoChars() : AlignRequirement(AlignRequirementKind::None) {}
+  TypeInfoChars(clang::CharUnits Width, clang::CharUnits Align,
+                AlignRequirementKind AlignRequirement)
+      : Width(Width), Align(Align), AlignRequirement(AlignRequirement) {}
+  bool isAlignRequired() {
+    return AlignRequirement != AlignRequirementKind::None;
+  }
+};
+
 class CIRContext : public llvm::RefCountedBase<CIRContext> {
 
 private:
@@ -104,6 +118,8 @@ public:
 
   /// Convert a size in characters to a size in bits.
   int64_t toBits(clang::CharUnits CharSize) const;
+
+  TypeInfoChars getTypeInfoInChars(Type T) const;
 
   /// Get or compute information about the layout of the specified
   /// record (struct/union/class) \p D, which indicates its size and field

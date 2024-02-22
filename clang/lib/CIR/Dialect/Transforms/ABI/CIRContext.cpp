@@ -123,5 +123,13 @@ clang::CharUnits CIRContext::toCharUnitsFromBits(int64_t BitSize) const {
   return clang::CharUnits::fromQuantity(BitSize / getCharWidth());
 }
 
+TypeInfoChars CIRContext::getTypeInfoInChars(Type T) const {
+  if (auto arrTy = T.dyn_cast<ArrayType>())
+    llvm_unreachable("NYI");
+  TypeInfo Info = getTypeInfo(T);
+  return TypeInfoChars(toCharUnitsFromBits(Info.Width),
+                       toCharUnitsFromBits(Info.Align), Info.AlignRequirement);
+}
+
 } // namespace cir
 } // namespace mlir

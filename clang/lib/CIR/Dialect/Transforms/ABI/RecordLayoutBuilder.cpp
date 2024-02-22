@@ -306,7 +306,13 @@ void ItaniumRecordLayoutBuilder::layoutField(const Type D,
   clang::CharUnits EffectiveFieldSize;
 
   auto setDeclInfo = [&](bool IsIncompleteArrayType) {
-    llvm_unreachable("NYI");
+    auto TI = Context.getTypeInfoInChars(D);
+    FieldAlign = TI.Align;
+    // Flexible array members don't have any size, but they have to be
+    // aligned appropriately for their element type.
+    EffectiveFieldSize = FieldSize =
+        IsIncompleteArrayType ? clang::CharUnits::Zero() : TI.Width;
+    AlignRequirement = TI.AlignRequirement;
   };
 
   if (D.isa<ArrayType>() && D.cast<ArrayType>().getSize() == 0) {
@@ -314,7 +320,7 @@ void ItaniumRecordLayoutBuilder::layoutField(const Type D,
   } else {
     setDeclInfo(false /* IsIncompleteArrayType */);
 
-    if (MissingFeature::isPotentiallyOverlapping())
+    if (!MissingFeature::isPotentiallyOverlapping())
       llvm_unreachable("NYI");
 
     if (IsMsStruct)
