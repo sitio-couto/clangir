@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CIRRecordLayout.h"
 #include "mlir/IR/Types.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
@@ -67,6 +68,11 @@ public:
 
   /// Return the size of the specified (complete) type \p T, in bits.
   uint64_t getTypeSize(Type T) const { return getTypeInfo(T).Width; }
+
+  /// Get or compute information about the layout of the specified
+  /// record (struct/union/class) \p D, which indicates its size and field
+  /// position information.
+  const CIRRecordLayout &getCIRRecordLayout(const Type D) const;
 };
 
 } // namespace cir

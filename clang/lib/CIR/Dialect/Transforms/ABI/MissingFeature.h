@@ -18,6 +18,8 @@ struct MissingFeature {
   // their underlying integer type, which is already an int in CIR.
   static bool isEnum() { return true; }
   static bool isBuiltinType() { return true; }
+  static bool isCXXRecord() { return true; }
+  static bool recordBasesIterator() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }

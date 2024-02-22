@@ -9,6 +9,7 @@ add_clang_library(ABILowering
   ItaniumCXXABI.cpp
   CIRCXXABI.cpp
   CIRContext.cpp
+  CIRRecordLayout.cpp
 
   DEPENDS
 

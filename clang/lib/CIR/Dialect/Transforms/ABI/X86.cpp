@@ -97,6 +97,40 @@ static bool BitsContainNoUserData(Type Ty, unsigned StartBit, unsigned EndBit,
   if (TySize <= StartBit)
     return true;
 
+  if (auto arrTy = Ty.dyn_cast<ArrayType>()) {
+    llvm_unreachable("NYI");
+  }
+
+  if (auto structTy = Ty.dyn_cast<StructType>()) {
+    const CIRRecordLayout &Layout = Context.getCIRRecordLayout(Ty);
+
+    // If this is a C++ record, check the bases first.
+    if (!MissingFeature::isCXXRecord() ||
+        !MissingFeature::recordBasesIterator()) {
+      llvm_unreachable("NYI");
+    }
+
+    // Verify that no field has data that overlaps the region of interest.  Yes
+    // this could be sped up a lot by being smarter about queried fields,
+    // however we're only looking at structs up to 16 bytes, so we don't care
+    // much.
+    unsigned idx = 0;
+    for (auto type : structTy.getMembers()) {
+      unsigned FieldOffset = (unsigned)Layout.getFieldOffset(idx);
+
+      // If we found a field after the region we care about, then we're done.
+      if (FieldOffset >= EndBit)
+        break;
+
+      unsigned FieldStart = FieldOffset < StartBit ? StartBit - FieldOffset : 0;
+      if (!BitsContainNoUserData(type, FieldStart, EndBit - FieldOffset,
+                                 Context))
+        return false;
+
+      ++idx;
+    }
+  }
+
   llvm_unreachable("NYI");
 }
 
@@ -139,7 +173,7 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
 
       if (BitsContainNoUserData(SourceTy, SourceOffset * 8 + BitWidth,
                                 SourceOffset * 8 + 64, getContext()))
-        llvm_unreachable("NYI");
+        return DestTy;
     }
   }
 

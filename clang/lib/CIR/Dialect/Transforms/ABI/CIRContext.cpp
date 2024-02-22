@@ -1,6 +1,7 @@
 #include "CIRContext.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
 namespace cir {
@@ -61,6 +62,13 @@ void CIRContext::initBuiltinTypes(const clang::TargetInfo &Target,
          "Incorrect target reinitialization");
   this->Target = &Target;
   this->AuxTarget = AuxTarget;
+}
+
+/// Get or compute information about the layout of the specified record
+/// (struct/union/class), which indicates its size and field position
+/// information.
+const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
+  llvm_unreachable("NYI");
 }
 
 } // namespace cir
