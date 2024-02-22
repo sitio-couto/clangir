@@ -20,6 +20,10 @@ struct MissingFeature {
   // own abstractions mirroring these. It would facilitate codegen parity.
   static bool tagTypeClass() { return true; }
 
+  // Clang has a class that abstracts external AST sources. Not sure if this
+  // will be necessary for CIR.
+  static bool externalASTSource() { return true; }
+
   // CIR does not have enough information to easily distinguish certain
   // properties between language elements. For example, it can't distinguish
   // functions (ctor, dtor, method, etc), it does not carry attributes
@@ -36,6 +40,17 @@ struct MissingFeature {
   static bool canPassInRegisters() { return true; }
   static bool hasFlexibleArrayMember() { return true; }
   static bool alignmentAttribute() { return true; }
+  static bool MSStructAttr() { return true; }
+  static bool packedAttr() { return true; }
+  static bool alignMac68kAttr() { return true; }
+  static bool alignNaturalAttr() { return true; }
+  static bool maxFieldAlignmentAttr() { return true; }
+
+  // Missing queries features in CIR types.
+  static bool getMaxAlignment() { return true; }
+  
+  // Missing queries for CIR CXX record types.
+  static bool isDynamicClass() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }

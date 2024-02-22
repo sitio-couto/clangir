@@ -78,6 +78,8 @@ private:
 public:
   const clang::TargetInfo &getTargetInfo() const { return *Target; }
 
+  const clang::LangOptions& getLangOpts() const { return LangOpts; }
+
   //===--------------------------------------------------------------------===//
   //                         Type Sizing and Analysis
   //===--------------------------------------------------------------------===//
