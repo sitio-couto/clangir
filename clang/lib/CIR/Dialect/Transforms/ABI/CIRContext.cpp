@@ -108,30 +108,5 @@ void CIRContext::initBuiltinTypes(const clang::TargetInfo &Target,
     initBuiltinType(CharTy, clang::BuiltinType::Char_U);
 }
 
-static bool isMsLayout(const CIRContext &Context) {
-  return Context.getTargetInfo().getCXXABI().isMicrosoft();
-}
-
-/// Get or compute information about the layout of the specified record
-/// (struct/union/class), which indicates its size and field position
-/// information.
-const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
-  assert(D.isa<StructType>() && "Not a record type");
-  auto RT = D.dyn_cast<StructType>();
-
-  assert(RT.isComplete() && "Cannot get layout of forward declarations!");
-
-  // FIXME(cir): Cache the layout. Also, use a more MLIR-based approach.
-
-  const CIRRecordLayout *NewEntry = nullptr;
-
-  if (isMsLayout(*this)) {
-    llvm_unreachable("NYI");
-  } else {
-    assert(MissingFeature::isCXXRecord());
-    llvm_unreachable("NYI");
-  }
-}
-
 } // namespace cir
 } // namespace mlir
