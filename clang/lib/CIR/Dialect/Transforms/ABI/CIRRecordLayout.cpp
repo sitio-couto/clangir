@@ -24,7 +24,10 @@ CIRRecordLayout::CIRRecordLayout(
       PreferredAlignment(preferredAlignment),
       UnadjustedAlignment(unadjustedAlignment),
       RequiredAlignment(requiredAlignment), CXXInfo(new CXXRecordLayoutInfo) {
-  // FieldOffsets.append(Ctx, fieldoffsets.begin(), fieldoffsets.end());
+  // NOTE(cir): Clang does a far more elaborate append here by leveraging the
+  // custom ASTVector class. For now, we'll do a simple append.
+  FieldOffsets.insert(FieldOffsets.end(), fieldoffsets.begin(),
+                      fieldoffsets.end());
 
   assert(!PrimaryBase && "Layout for class with inheritance is NYI");
   // CXXInfo->PrimaryBase.setPointer(PrimaryBase);
