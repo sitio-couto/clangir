@@ -91,6 +91,10 @@ int64_t CIRContext::toBits(clang::CharUnits CharSize) const {
   return CharSize.getQuantity() * getCharWidth();
 }
 
+clang::CharUnits CIRContext::getTypeSizeInChars(Type T) const {
+  return getTypeInfoInChars(T).Width;
+}
+
 void CIRContext::initBuiltinType(Type &Ty, clang::BuiltinType::Kind K) {
   // NOTE(cir): Clang does more stuff here. Not sure if we need to do the same.
   assert(MissingFeature::qualifiedTypes());

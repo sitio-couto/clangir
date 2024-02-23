@@ -185,9 +185,12 @@ static bool BitsContainNoUserData(Type Ty, unsigned StartBit, unsigned EndBit,
 
       ++idx;
     }
+
+    // If nothing in this record overlapped the area of interest, we're good.
+    return true;
   }
 
-  llvm_unreachable("NYI");
+  return false;
 }
 
 /// The ABI specifies that a value should be passed in an 8-byte GPR.  This
@@ -209,13 +212,8 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
   // If we're dealing with an un-offset CIR type, then it means that we're
   // returning an 8-byte unit starting with it. See if we can safely use it.
   if (IROffset == 0) {
-    // TODO(cir): Handle pointers.
-    assert(!DestTy.isa<PointerType>() && "Ptrs are NYI");
-    auto intTy = DestTy.cast<IntType>();
-
     // Pointers and int64's always fill the 8-byte unit.
-    if (intTy.getWidth() == 64)
-      llvm_unreachable("NYI");
+    assert(!DestTy.isa<PointerType>() && "Ptrs are NYI");
 
     // If we have a 1/2/4-byte integer, we can use it only if the rest of the
     // goodness in the source type is just tail padding.  This is allowed to
@@ -223,17 +221,34 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
     // struct{double,int,int} because we wouldn't return the second int.  We
     // have to do this analysis on the source type because we can't depend on
     // unions being lowered a specific way etc.
-    if (intTy.getWidth() == 8 || intTy.getWidth() == 16 ||
-        intTy.getWidth() == 32) {
-      unsigned BitWidth = intTy.getWidth();
-
-      if (BitsContainNoUserData(SourceTy, SourceOffset * 8 + BitWidth,
-                                SourceOffset * 8 + 64, getContext()))
-        return DestTy;
+    if (auto intTy = DestTy.dyn_cast<IntType>()) {
+      if (intTy.getWidth() == 8 || intTy.getWidth() == 16 ||
+          intTy.getWidth() == 32) {
+        if (BitsContainNoUserData(SourceTy, 0, 8, getContext()))
+          return DestTy;
+      }
     }
   }
 
-  llvm_unreachable("NYI");
+  if (auto RT = DestTy.dyn_cast<StructType>()) {
+    // If this is a struct, recurse into the field at the specified offset.
+    llvm_unreachable("NYI");
+  }
+
+  // Okay, we don't have any better idea of what to pass, so we pass this in an
+  // integer register that isn't too big to fit the rest of the struct.
+  unsigned TySizeInBytes =
+      (unsigned)getContext().getTypeSizeInChars(SourceTy).getQuantity();
+
+  assert(TySizeInBytes != SourceOffset && "Empty field?");
+
+  // It is always safe to classify this as an integer type up to i64 that
+  // isn't larger than the structure.
+  // FIXME(cir): Perhaps we should have the concept of singless integers in CIR,
+  // mostly because coerced types should not be sign/zero extended. On the other
+  // hand, this might not make a difference in practice.
+  return IntType::get(LT.getMLIRContext(),
+                      std::min(TySizeInBytes - SourceOffset, 8U) * 8, false);
 }
 
 void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
@@ -417,7 +432,53 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(Type Ty, unsigned freeIntRegs,
   X86_64ABIInfo::Class Lo, Hi;
   classify(Ty, 0, Lo, Hi, isNamedArg, IsRegCall);
 
-  llvm_unreachable("NYI");
+  // Check some invariants.
+  // FIXME: Enforce these by construction.
+  assert((Hi != Memory || Lo == Memory) && "Invalid memory classification.");
+  assert((Hi != SSEUp || Lo == SSE) && "Invalid SSEUp classification.");
+
+  neededInt = 0;
+  neededSSE = 0;
+  Type ResType = {};
+  switch (Lo) {
+    // AMD64-ABI 3.2.3p3: Rule 2. If the class is INTEGER, the next
+    // available register of the sequence %rdi, %rsi, %rdx, %rcx, %r8
+    // and %r9 is used.
+  case Integer:
+    ++neededInt;
+
+    // Pick an 8-byte type based on the preferred type.
+    ResType = GetINTEGERTypeAtOffset(Ty, 0, Ty, 0);
+
+    // If we have a sign or zero extended integer, make sure to return Extend
+    // so that the parameter gets the right LLVM IR attributes.
+    if (Hi == NoClass && ResType.isa<IntType>()) {
+      // Treat an enum type as its underlying type.
+      if (!MissingFeature::isEnum())
+        llvm_unreachable("NYI");
+
+      if (!MissingFeature::isIntegralOrEnumerationType())
+        llvm_unreachable("NYI");
+    }
+
+    break;
+
+  default:
+    llvm_unreachable("NYI");
+  }
+
+  Type HighPart = {};
+  switch (Hi) {
+  case NoClass:
+    break;
+  default:
+    llvm_unreachable("NYI");
+  }
+
+  if (HighPart)
+    llvm_unreachable("NYI");
+
+  return ABIArgInfo::getDirect(ResType);
 }
 
 void X86_64ABIInfo::computeInfo(LoweringFunctionInfo &FI) const {
@@ -519,8 +580,8 @@ X86_64ABIInfo::Class X86_64ABIInfo::merge(Class Accum, Class Field) {
     return Field;
   if (Accum == Integer || Field == Integer)
     return Integer;
-  if (Field == X87 || Field == X87Up || Field == ComplexX87 ||
-      Accum == X87 || Accum == X87Up)
+  if (Field == X87 || Field == X87Up || Field == ComplexX87 || Accum == X87 ||
+      Accum == X87Up)
     return Memory;
   return SSE;
 }

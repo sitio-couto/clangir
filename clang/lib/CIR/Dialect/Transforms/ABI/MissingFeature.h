@@ -54,13 +54,14 @@ struct MissingFeature {
   static bool fieldDeclAbs() { return true; } // Record field of any type.
   static bool qualTypeAbs() { return true; }  // Any qualified type.
 
-  // Missing queries for field types in CIR.
-  static bool isBitField() { return true; }
-  static bool isUnnamedBitField() { return true; }
-
   // Missing queries in CIR types.
   static bool getMaxAlignment() { return true; }
   static bool isPotentiallyOverlapping() { return true; }
+  static bool isIntegralOrEnumerationType() { return true; }
+
+  // Missing queries for field types in CIR.
+  static bool isBitField() { return true; }
+  static bool isUnnamedBitField() { return true; }
 
   // Missing queries for CIR CXX record types.
   static bool hasFlexibleArrayMember() { return true; }
