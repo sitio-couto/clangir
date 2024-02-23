@@ -1,4 +1,5 @@
 #include "CIRContext.h"
+#include "CIRRecordLayout.h"
 #include "MissingFeature.h"
 #include "mlir/IR/Location.h"
 #include "clang/AST/CharUnits.h"
@@ -30,6 +31,11 @@ class EmptySubobjectMap {
   void ComputeEmptySubobjectSizes();
 
 public:
+  /// This holds the size of the largest empty subobject (either a base
+  /// or a member). Will be zero if the record being built doesn't contain
+  /// any empty classes.
+  clang::CharUnits SizeOfLargestEmptySubobject;
+
   EmptySubobjectMap(const CIRContext &Context, const StructType Class)
       : Context(Context), CharWidth(Context.getCharWidth()), Class(Class) {
     ComputeEmptySubobjectSizes();
@@ -69,7 +75,7 @@ bool EmptySubobjectMap::canPlaceFieldAtOffset(const Type Ty,
 class ItaniumRecordLayoutBuilder {
 protected:
   // FIXME(cir):  Remove this and make the appropriate fields public.
-  friend class CIRContext;
+  friend class mlir::cir::CIRContext;
 
   const CIRContext &Context;
 
@@ -136,8 +142,10 @@ protected:
   /// this is the size up to the end of that field.
   clang::CharUnits PaddedFieldSize;
 
-  /// PrimaryBaseIsVirtual - Whether the primary base of the class we're laying
-  /// out is virtual.
+  /// The primary base class (if one exists) of the class we're laying out.
+  const StructType PrimaryBase;
+
+  /// Whether the primary base of the class we're laying out is virtual.
   bool PrimaryBaseIsVirtual;
 
   /// Whether the class provides its own vtable/vftbl pointer, as opposed to
@@ -186,6 +194,10 @@ public:
                          uint64_t UnpackedOffset, unsigned UnpackedAlign,
                          bool isPacked, const Type Ty);
 
+  clang::CharUnits getSize() const {
+    assert(Size % Context.getCharWidth() == 0);
+    return Context.toCharUnitsFromBits(Size);
+  }
   uint64_t getSizeInBits() const { return Size; }
 
   void setSize(clang::CharUnits NewSize) { Size = Context.toBits(NewSize); }
@@ -522,6 +534,52 @@ bool isMsLayout(const CIRContext &Context) {
   return Context.getTargetInfo().getCXXABI().isMicrosoft();
 }
 
+/// Does the target C++ ABI require us to skip over the tail-padding
+/// of the given class (considering it as a base class) when allocating
+/// objects?
+static bool mustSkipTailPadding(clang::TargetCXXABI ABI, const StructType RD) {
+  assert(MissingFeature::isCXXRecord());
+  switch (ABI.getTailPaddingUseRules()) {
+  case clang::TargetCXXABI::AlwaysUseTailPadding:
+    return false;
+
+  case clang::TargetCXXABI::UseTailPaddingUnlessPOD03:
+    // FIXME: To the extent that this is meant to cover the Itanium ABI
+    // rules, we should implement the restrictions about over-sized
+    // bitfields:
+    //
+    // http://itanium-cxx-abi.github.io/cxx-abi/abi.html#POD :
+    //   In general, a type is considered a POD for the purposes of
+    //   layout if it is a POD type (in the sense of ISO C++
+    //   [basic.types]). However, a POD-struct or POD-union (in the
+    //   sense of ISO C++ [class]) with a bitfield member whose
+    //   declared width is wider than the declared type of the
+    //   bitfield is not a POD for the purpose of layout.  Similarly,
+    //   an array type is not a POD for the purpose of layout if the
+    //   element type of the array is not a POD for the purpose of
+    //   layout.
+    //
+    //   Where references to the ISO C++ are made in this paragraph,
+    //   the Technical Corrigendum 1 version of the standard is
+    //   intended.
+    // FIXME(cir): This always returns true since we can check if a CIR record
+    // is a POD type.
+    assert(MissingFeature::isPODTR1());
+    return true;
+
+  case clang::TargetCXXABI::UseTailPaddingUnlessPOD11:
+    // This is equivalent to RD->getTypeForDecl().isCXX11PODType(),
+    // but with a lot of abstraction penalty stripped off.  This does
+    // assume that these properties are set correctly even in C++98
+    // mode; fortunately, that is true because we want to assign
+    // consistently semantics to the type-traits intrinsics (or at
+    // least as many of them as possible).
+    llvm_unreachable("NYI");
+  }
+
+  llvm_unreachable("bad tail-padding use kind");
+}
+
 } // namespace
 
 /// Get or compute information about the layout of the specified record
@@ -546,6 +604,27 @@ const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
     ItaniumRecordLayoutBuilder Builder(*this, &EmptySubobjects);
     Builder.layout(RT);
 
-    llvm_unreachable("NYI");
+    // In certain situations, we are allowed to lay out objects in the
+    // tail-padding of base classes.  This is ABI-dependent.
+    // FIXME: this should be stored in the record layout.
+    bool skipTailPadding = mustSkipTailPadding(getTargetInfo().getCXXABI(), RT);
+
+    // FIXME: This should be done in FinalizeLayout.
+    clang::CharUnits DataSize =
+        skipTailPadding ? Builder.getSize() : Builder.getDataSize();
+    clang::CharUnits NonVirtualSize =
+        skipTailPadding ? DataSize : Builder.NonVirtualSize;
+    assert(MissingFeature::isDynamicClass());
+    NewEntry = new CIRRecordLayout(
+        *this, Builder.getSize(), Builder.Alignment, Builder.PreferredAlignment,
+        Builder.UnadjustedAlignment,
+        /*RequiredAlignment : used by MS-ABI)*/
+        Builder.Alignment, Builder.HasOwnVFPtr, /*RD->isDynamicClass()=*/false,
+        clang::CharUnits::fromQuantity(-1), DataSize, Builder.FieldOffsets,
+        NonVirtualSize, Builder.NonVirtualAlignment,
+        Builder.PreferredNVAlignment,
+        EmptySubobjects.SizeOfLargestEmptySubobject, Builder.PrimaryBase,
+        Builder.PrimaryBaseIsVirtual, nullptr, false, false);
   }
+  llvm_unreachable("NYI");
 }
