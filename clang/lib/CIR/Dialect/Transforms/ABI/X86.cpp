@@ -10,12 +10,30 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
 namespace mlir {
 namespace cir {
+
+namespace {
+
+/// \p returns the size in bits of the largest (native) vector for \p AVXLevel.
+unsigned getNativeVectorSizeForAVXABI(X86AVXABILevel AVXLevel) {
+  switch (AVXLevel) {
+  case X86AVXABILevel::AVX512:
+    return 512;
+  case X86AVXABILevel::AVX:
+    return 256;
+  case X86AVXABILevel::None:
+    return 128;
+  }
+  llvm_unreachable("Unknown AVXLevel");
+}
+
+} // namespace
 
 class X86_64ABIInfo : public ABIInfo {
   enum Class {
@@ -28,6 +46,33 @@ class X86_64ABIInfo : public ABIInfo {
     NoClass,
     Memory
   };
+
+  /// Implement the X86_64 ABI merging algorithm.
+  ///
+  /// Merge an accumulating classification \arg Accum with a field
+  /// classification \arg Field.
+  ///
+  /// \param Accum - The accumulating classification. This should
+  /// always be either NoClass or the result of a previous merge
+  /// call. In addition, this should never be Memory (the caller
+  /// should just return Memory for the aggregate).
+  static Class merge(Class Accum, Class Field);
+
+  /// Implement the X86_64 ABI post merging algorithm.
+  ///
+  /// Post merger cleanup, reduces a malformed Hi and Lo pair to
+  /// final MEMORY or SSE classes when necessary.
+  ///
+  /// \param AggregateSize - The size of the current aggregate in
+  /// the classification process.
+  ///
+  /// \param Lo - The classification for the parts of the type
+  /// residing in the low word of the containing object.
+  ///
+  /// \param Hi - The classification for the parts of the type
+  /// residing in the higher words of the containing object.
+  ///
+  void postMerge(unsigned AggregateSize, Class &Lo, Class &Hi) const;
 
   /// Determine the x86_64 register classes in which the given type T should be
   /// passed.
@@ -60,6 +105,17 @@ class X86_64ABIInfo : public ABIInfo {
 
   Type GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset, Type SourceTy,
                               unsigned SourceOffset) const;
+
+  /// The 0.98 ABI revision clarified a lot of ambiguities,
+  /// unfortunately in ways that were not always consistent with
+  /// certain previous compilers.  In particular, platforms which
+  /// required strict binary compatibility with older versions of GCC
+  /// may need to exempt themselves.
+  bool honorsRevision0_98() const {
+    return !getTarget().getTriple().isOSDarwin();
+  }
+
+  X86AVXABILevel AVXLevel;
 
 public:
   X86_64ABIInfo(LoweringTypes &CGT, X86AVXABILevel AVXLevel) : ABIInfo(CGT) {}
@@ -242,10 +298,63 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
            MissingFeature::recordBasesIterator());
 
     // Classify the fields one at a time, merging the results.
-    llvm_unreachable("NYI");
-  }
+    bool UseClang11Compat = getContext().getLangOpts().getClangABICompat() <=
+                                clang::LangOptions::ClangABI::Ver11 ||
+                            getContext().getTargetInfo().getTriple().isPS();
+    bool IsUnion = RT.isUnion() && !UseClang11Compat;
 
-  llvm_unreachable("NYI");
+    assert(MissingFeature::fieldDeclAbs());
+    for (auto [idx, FT] : llvm::enumerate(RT.getMembers())) {
+      uint64_t Offset = OffsetBase + Layout.getFieldOffset(idx);
+      assert(MissingFeature::isBitField());
+      bool BitField = false;
+
+      // Ignore padding bit-fields.
+      if (BitField && MissingFeature::isUnnamedBitField())
+        llvm_unreachable("NYI");
+
+      // AMD64-ABI 3.2.3p2: Rule 1. If the size of an object is larger than
+      // eight eightbytes, or it contains unaligned fields, it has class MEMORY.
+      //
+      // The only case a 256-bit or a 512-bit wide vector could be used is when
+      // the struct contains a single 256-bit or 512-bit element. Early check
+      // and fallback to memory.
+      //
+      // FIXME: Extended the Lo and Hi logic properly to work for size wider
+      // than 128.
+      if (Size > 128 && ((!IsUnion && Size != getContext().getTypeSize(FT)) ||
+                         Size > getNativeVectorSizeForAVXABI(AVXLevel))) {
+        llvm_unreachable("NYI");
+      }
+      // Note, skip this test for bit-fields, see below.
+      if (!BitField && Offset % getContext().getTypeAlign(RT)) {
+        llvm_unreachable("NYI");
+      }
+
+      // Classify this field.
+      //
+      // AMD64-ABI 3.2.3p2: Rule 3. If the size of the aggregate
+      // exceeds a single eightbyte, each is classified
+      // separately. Each eightbyte gets initialized to class
+      // NO_CLASS.
+      Class FieldLo, FieldHi;
+
+      // Bit-fields require special handling, they do not force the
+      // structure to be passed in memory even if unaligned, and
+      // therefore they can straddle an eightbyte.
+      if (BitField) {
+        llvm_unreachable("NYI");
+      } else {
+        classify(FT, Offset, FieldLo, FieldHi, isNamedArg);
+      }
+      Lo = merge(Lo, FieldLo);
+      Hi = merge(Hi, FieldHi);
+      if (Lo == Memory || Hi == Memory)
+        break;
+    }
+
+    postMerge(Size, Lo, Hi);
+  }
 }
 
 ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
@@ -374,6 +483,79 @@ void X86_64ABIInfo::computeInfo(LoweringFunctionInfo &FI) const {
       llvm_unreachable("Indirect results are NYI");
     }
   }
+}
+
+X86_64ABIInfo::Class X86_64ABIInfo::merge(Class Accum, Class Field) {
+  // AMD64-ABI 3.2.3p2: Rule 4. Each field of an object is
+  // classified recursively so that always two fields are
+  // considered. The resulting class is calculated according to
+  // the classes of the fields in the eightbyte:
+  //
+  // (a) If both classes are equal, this is the resulting class.
+  //
+  // (b) If one of the classes is NO_CLASS, the resulting class is
+  // the other class.
+  //
+  // (c) If one of the classes is MEMORY, the result is the MEMORY
+  // class.
+  //
+  // (d) If one of the classes is INTEGER, the result is the
+  // INTEGER.
+  //
+  // (e) If one of the classes is X87, X87UP, COMPLEX_X87 class,
+  // MEMORY is used as class.
+  //
+  // (f) Otherwise class SSE is used.
+
+  // Accum should never be memory (we should have returned) or
+  // ComplexX87 (because this cannot be passed in a structure).
+  assert((Accum != Memory && Accum != ComplexX87) &&
+         "Invalid accumulated classification during merge.");
+  if (Accum == Field || Field == NoClass)
+    return Accum;
+  if (Field == Memory)
+    return Memory;
+  if (Accum == NoClass)
+    return Field;
+  if (Accum == Integer || Field == Integer)
+    return Integer;
+  if (Field == X87 || Field == X87Up || Field == ComplexX87 ||
+      Accum == X87 || Accum == X87Up)
+    return Memory;
+  return SSE;
+}
+
+void X86_64ABIInfo::postMerge(unsigned AggregateSize, Class &Lo,
+                              Class &Hi) const {
+  // AMD64-ABI 3.2.3p2: Rule 5. Then a post merger cleanup is done:
+  //
+  // (a) If one of the classes is Memory, the whole argument is passed in
+  //     memory.
+  //
+  // (b) If X87UP is not preceded by X87, the whole argument is passed in
+  //     memory.
+  //
+  // (c) If the size of the aggregate exceeds two eightbytes and the first
+  //     eightbyte isn't SSE or any other eightbyte isn't SSEUP, the whole
+  //     argument is passed in memory. NOTE: This is necessary to keep the
+  //     ABI working for processors that don't support the __m256 type.
+  //
+  // (d) If SSEUP is not preceded by SSE or SSEUP, it is converted to SSE.
+  //
+  // Some of these are enforced by the merging logic.  Others can arise
+  // only with unions; for example:
+  //   union { _Complex double; unsigned; }
+  //
+  // Note that clauses (b) and (c) were added in 0.98.
+  //
+  if (Hi == Memory)
+    Lo = Memory;
+  if (Hi == X87Up && Lo != X87 && honorsRevision0_98())
+    Lo = Memory;
+  if (AggregateSize > 128 && (Lo != SSE || Hi != SSEUp))
+    Lo = Memory;
+  if (Hi == SSEUp && Lo != SSE)
+    Hi = SSE;
 }
 
 std::unique_ptr<TargetLoweringInfo>

@@ -54,8 +54,9 @@ struct MissingFeature {
   static bool fieldDeclAbs() { return true; } // Record field of any type.
   static bool qualTypeAbs() { return true; }  // Any qualified type.
 
-  // Information lost due to CIR's low-level nature.
+  // Missing queries for field types in CIR.
   static bool isBitField() { return true; }
+  static bool isUnnamedBitField() { return true; }
 
   // Missing queries in CIR types.
   static bool getMaxAlignment() { return true; }

@@ -615,6 +615,7 @@ const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
     clang::CharUnits NonVirtualSize =
         skipTailPadding ? DataSize : Builder.NonVirtualSize;
     assert(MissingFeature::isDynamicClass());
+    // FIXME(cir): Whose responsible for freeing the allocation below?
     NewEntry = new CIRRecordLayout(
         *this, Builder.getSize(), Builder.Alignment, Builder.PreferredAlignment,
         Builder.UnadjustedAlignment,
@@ -626,5 +627,9 @@ const CIRRecordLayout &CIRContext::getCIRRecordLayout(const Type D) const {
         EmptySubobjects.SizeOfLargestEmptySubobject, Builder.PrimaryBase,
         Builder.PrimaryBaseIsVirtual, nullptr, false, false);
   }
-  llvm_unreachable("NYI");
+
+  // TODO(cir): Cache the layout.
+  // TODO(cir): Add option to dump the layouts.
+  
+  return *NewEntry;
 }

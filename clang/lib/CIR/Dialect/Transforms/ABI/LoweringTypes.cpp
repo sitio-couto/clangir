@@ -40,7 +40,8 @@ arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
 } // namespace
 
 LoweringTypes::LoweringTypes(LoweringModule &LM)
-    : LM(LM), context(LM.getContext()), CXXABI(LM.getCXXABI()),
+    : LM(LM), context(LM.getContext()), Target(LM.getTarget()),
+      CXXABI(LM.getCXXABI()),
       TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()),
       mlirContext(LM.getMLIRContext()) {}
 

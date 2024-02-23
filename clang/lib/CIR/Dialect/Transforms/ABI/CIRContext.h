@@ -119,6 +119,10 @@ public:
   /// Convert a size in characters to a size in bits.
   int64_t toBits(clang::CharUnits CharSize) const;
 
+  /// Return the ABI-specified alignment of a (complete) type \p T, in
+  /// bits.
+  unsigned getTypeAlign(Type T) const { return getTypeInfo(T).Align; }
+
   TypeInfoChars getTypeInfoInChars(Type T) const;
 
   /// Get or compute information about the layout of the specified

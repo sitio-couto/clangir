@@ -14,5 +14,7 @@ CIRCXXABI &ABIInfo::getCXXABI() const { return LT.getCXXABI(); }
 
 CIRContext &ABIInfo::getContext() const { return LT.getContext(); }
 
+const clang::TargetInfo &ABIInfo::getTarget() const { return LT.getTarget(); }
+
 } // namespace cir
 } // namespace mlir

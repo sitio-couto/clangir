@@ -24,8 +24,8 @@ public:
   virtual ~ABIInfo();
 
   CIRCXXABI &getCXXABI() const;
-
   CIRContext &getContext() const;
+  const clang::TargetInfo &getTarget() const;
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;
 };

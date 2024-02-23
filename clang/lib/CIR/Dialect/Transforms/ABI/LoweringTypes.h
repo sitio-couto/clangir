@@ -26,6 +26,7 @@ class LoweringTypes {
 private:
   LoweringModule &LM;
   CIRContext &context;
+  const clang::TargetInfo &Target;
   CIRCXXABI &CXXABI;
 
   // This should not be moved earlier, since its initialization depends on some
@@ -43,6 +44,7 @@ public:
 
   LoweringModule &getCGM() const { return LM; }
   CIRContext &getContext() { return context; }
+  const clang::TargetInfo &getTarget() const { return Target; }
   CIRCXXABI &getCXXABI() const { return CXXABI; }
   MLIRContext *getMLIRContext() { return mlirContext; }
 
