@@ -14,11 +14,13 @@
 #include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "ABI/MissingFeature.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define GEN_PASS_DEF_CALLCONVLOWERING
@@ -37,6 +39,9 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
   LogicalResult matchAndRewrite(FuncOp op,
                                 PatternRewriter &rewriter) const final {
     auto module = op->getParentOfType<mlir::ModuleOp>();
+    auto dataLayout =
+        module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())
+            .cast<StringAttr>();
 
     llvm::Triple triple(
         module->getAttr("cir.triple").cast<StringAttr>().getValue());
@@ -52,12 +57,13 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
     auto context = CIRContext(module.getContext(), langOpts);
     context.initBuiltinTypes(*targetInfo);
 
-    LoweringModule state(context, module, *targetInfo);
+    LoweringModule state(context, module, dataLayout, *targetInfo);
 
     const LoweringFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);
     FuncType Ty = state.getTypes().getFunctionType(FI);
-    Ty.dump();
+    llvm::outs() << "Call Conv Lowering \n \tfrom: " << op.getFunctionType()
+                 << "\n\tto: " << Ty << "\n";
 
     return success();
   }
