@@ -1,6 +1,7 @@
 #include "ABIInfo.h"
 #include "ABIInfoImpl.h"
 #include "CIRContext.h"
+#include "DataLayout.h"
 #include "LoweringFunctionInfo.h"
 #include "LoweringModule.h"
 #include "LoweringTypes.h"
@@ -224,7 +225,9 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
     if (auto intTy = DestTy.dyn_cast<IntType>()) {
       if (intTy.getWidth() == 8 || intTy.getWidth() == 16 ||
           intTy.getWidth() == 32) {
-        if (BitsContainNoUserData(SourceTy, 0, 8, getContext()))
+        unsigned BitWidth = intTy.getWidth();
+        if (BitsContainNoUserData(SourceTy, SourceOffset * 8 + BitWidth,
+                                  SourceOffset * 8 + 64, getContext()))
           return DestTy;
       }
     }
@@ -232,7 +235,14 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
 
   if (auto RT = DestTy.dyn_cast<StructType>()) {
     // If this is a struct, recurse into the field at the specified offset.
-    llvm_unreachable("NYI");
+    const StructLayout *SL = getDataLayout().getStructLayout(RT);
+    if (IROffset < SL->getSizeInBytes()) {
+      unsigned FieldIdx = SL->getElementContainingOffset(IROffset);
+      IROffset -= SL->getElementOffset(FieldIdx);
+
+      return GetINTEGERTypeAtOffset(RT.getMembers()[FieldIdx], IROffset,
+                                    SourceTy, SourceOffset);
+    }
   }
 
   // Okay, we don't have any better idea of what to pass, so we pass this in an

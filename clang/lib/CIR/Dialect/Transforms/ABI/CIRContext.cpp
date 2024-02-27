@@ -2,6 +2,7 @@
 #include "CIRRecordLayout.h"
 #include "MissingFeature.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -47,11 +48,17 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
   // some other interface, to abstract this away (e.g. type.getWidth() &
   // type.getAlign()). I'm not sure if data layoot suffices because this would
   // involve some other types such as vectors and complex numbers.
+  // FIXME(cir): In the original codegen, this receives an AST type, meaning it
+  // differs chars from integers, something that is not possible with the
+  // current level of CIR.
   switch (typeKind) {
   case clang::Type::Builtin: {
     if (auto intTy = T.dyn_cast<IntType>()) {
-      Width = Target->getIntWidth();
-      Align = Target->getIntAlign();
+      // NOTE(cir): This assumes int types are already ABI-specific.
+      // FIXEME(cir): Use data layout interface here instead.
+      Width = intTy.getWidth();
+      // FIXME(cir): We get the aligment in bits. But this is probably wrong for stuff like short types.
+      Align = intTy.getWidth();
       break;
     } else {
       llvm_unreachable("Unknown builtin type!");

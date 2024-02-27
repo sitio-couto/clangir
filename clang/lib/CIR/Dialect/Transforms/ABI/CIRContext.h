@@ -111,6 +111,8 @@ public:
   uint64_t getTypeSize(Type T) const { return getTypeInfo(T).Width; }
 
   /// Return the size of the character type, in bits.
+  // FIXME(cir): CharTy here is target-specific, and it already has a "width"
+  // property, so this seems redundant.
   uint64_t getCharWidth() const { return getTypeSize(CharTy); }
 
   /// Convert a size in bits to a size in characters.
