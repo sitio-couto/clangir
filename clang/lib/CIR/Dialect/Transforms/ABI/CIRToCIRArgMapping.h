@@ -36,6 +36,8 @@ public:
     construct(context, FI, onlyRequiredArgs);
   };
 
+  unsigned totalIRArgs() const { return TotalIRArgs; }
+
   void construct(const CIRContext &context, const LoweringFunctionInfo &FI,
                  bool onlyRequiredArgs = false) {
     unsigned IRArgNo = 0;
