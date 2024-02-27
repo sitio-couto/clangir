@@ -39,11 +39,11 @@ arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
 
 } // namespace
 
-LoweringTypes::LoweringTypes(LoweringModule &LM)
+LoweringTypes::LoweringTypes(LoweringModule &LM, StringRef DLString)
     : LM(LM), context(LM.getContext()), Target(LM.getTarget()),
       CXXABI(LM.getCXXABI()),
       TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()),
-      mlirContext(LM.getMLIRContext()) {}
+      mlirContext(LM.getMLIRContext()), DL(DLString) {}
 
 unsigned LoweringTypes::clangCallConvToLLVMCallConv(clang::CallingConv CC) {
   switch (CC) {
@@ -141,7 +141,7 @@ FuncType LoweringTypes::getFunctionType(const LoweringFunctionInfo &FI) {
   }
 
   CIRToCIRArgMapping IRFunctionArgs(getContext(), FI, true);
-  SmallVector<Type, 8> ArgTypes;
+  SmallVector<Type, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
 
   // Add type for sret argument.
   assert(MissingFeature::sretArgument());

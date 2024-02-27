@@ -16,5 +16,9 @@ CIRContext &ABIInfo::getContext() const { return LT.getContext(); }
 
 const clang::TargetInfo &ABIInfo::getTarget() const { return LT.getTarget(); }
 
+const CIRDataLayout &ABIInfo::getDataLayout() const {
+  return LT.getDataLayout();
+}
+
 } // namespace cir
 } // namespace mlir

@@ -31,7 +31,7 @@ private:
   LoweringTypes types;
 
 public:
-  LoweringModule(CIRContext &C, ModuleOp &module,
+  LoweringModule(CIRContext &C, ModuleOp &module, StringAttr DL,
                  const clang::TargetInfo &target);
   ~LoweringModule() = default;
 

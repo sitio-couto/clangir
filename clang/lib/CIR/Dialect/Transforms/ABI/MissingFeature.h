@@ -5,6 +5,8 @@ namespace cir {
 
 struct MissingFeature {
 
+  static bool addresSpace() { return true; }
+
   // CIR does not yet have a concept of language options. This is used to
   // control the behavior of the compiler in various areas. When dealing with
   // ABI, some options might affect the behaviour.
@@ -58,6 +60,8 @@ struct MissingFeature {
   static bool getMaxAlignment() { return true; }
   static bool isPotentiallyOverlapping() { return true; }
   static bool isIntegralOrEnumerationType() { return true; }
+  static bool isScalableType() { return true; }
+  static bool isSized() { return true; }
 
   // Missing queries for field types in CIR.
   static bool isBitField() { return true; }

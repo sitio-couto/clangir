@@ -2,6 +2,7 @@
 
 #include "CIRCXXABI.h"
 #include "CIRContext.h"
+#include "DataLayout.h"
 #include "mlir/IR/MLIRContext.h"
 #include "llvm/IR/CallingConv.h"
 
@@ -26,6 +27,7 @@ public:
   CIRCXXABI &getCXXABI() const;
   CIRContext &getContext() const;
   const clang::TargetInfo &getTarget() const;
+  const CIRDataLayout &getDataLayout() const;
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;
 };

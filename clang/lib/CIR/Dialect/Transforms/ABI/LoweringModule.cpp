@@ -2,6 +2,8 @@
 #include "CIRContext.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
@@ -51,10 +53,10 @@ createTargetLoweringInfo(LoweringModule &LM) {
   }
 }
 
-LoweringModule::LoweringModule(CIRContext &C, ModuleOp &module,
+LoweringModule::LoweringModule(CIRContext &C, ModuleOp &module, StringAttr DL,
                                const clang::TargetInfo &target)
     : context(C), module(module), Target(target), ABI(createCXXABI(*this)),
-      types(*this) {}
+      types(*this, DL.getValue()) {}
 
 const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   if (!TheTargetCodeGenInfo)

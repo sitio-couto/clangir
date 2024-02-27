@@ -4,6 +4,7 @@
 #include "ABIInfo.h"
 #include "CIRContext.h"
 #include "CIRToCIRArgMapping.h"
+#include "DataLayout.h"
 #include "LoweringCall.h"
 #include "LoweringFunctionInfo.h"
 #include "MissingFeature.h"
@@ -36,12 +37,15 @@ private:
   // Used to build types and other MLIR operations.
   MLIRContext *mlirContext;
 
+  CIRDataLayout DL;
+
   const ABIInfo &getABIInfo() const { return TheABIInfo; }
 
 public:
-  LoweringTypes(LoweringModule &LM);
+  LoweringTypes(LoweringModule &LM, StringRef DLString);
   ~LoweringTypes() = default;
 
+  const CIRDataLayout &getDataLayout() const { return DL; }
   LoweringModule &getCGM() const { return LM; }
   CIRContext &getContext() { return context; }
   const clang::TargetInfo &getTarget() const { return Target; }
