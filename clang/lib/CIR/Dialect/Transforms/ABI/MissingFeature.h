@@ -43,6 +43,7 @@ struct MissingFeature {
   // details.
   static bool isCtorOrDtor() { return true; }
   static bool isMethod() { return true; }
+  static bool vectorType() { return true; }
   // NOTE(cir): This might not be necessary, since Clang queries Enums to find
   // their underlying integer type, which is already an int in CIR.
   static bool isEnum() { return true; }
@@ -68,6 +69,7 @@ struct MissingFeature {
   static bool isIntegralOrEnumerationType() { return true; }
   static bool isScalableType() { return true; }
   static bool isSized() { return true; }
+  static bool evaluationKind() { return true; }
 
   // Missing queries for field types in CIR.
   static bool isBitField() { return true; }
@@ -82,6 +84,9 @@ struct MissingFeature {
 
   // Missing queries for CIR array types.
   static bool isIncomplete() { return true; }
+
+  // Missing queries for CIR function parameters.
+  static bool isKNRPromoted() { return true; }
 
   // Some other possible source languages are not yet handled by CIR.
   static bool CUDA() { return true; }

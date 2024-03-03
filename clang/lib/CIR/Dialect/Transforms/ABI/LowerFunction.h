@@ -23,7 +23,10 @@ public:
   LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter);
   ~LowerFunction() = default;
 
-  void emitFunctionProlog(const LoweringFunctionInfo &FI, FuncOp Fn);
+  const clang::TargetInfo &getTarget() const { return Target; }
+
+  void emitFunctionProlog(const LoweringFunctionInfo &FI, FuncOp Fn,
+                          MutableArrayRef<BlockArgument> Args);
 
   // Parity with CodeGenFunction::StartFunction. Note that the Fn variable is
   // not a FuncOp, but a FuncType. In the original function, Fn is the result

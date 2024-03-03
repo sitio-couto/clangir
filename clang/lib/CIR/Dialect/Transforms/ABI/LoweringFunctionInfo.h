@@ -112,6 +112,12 @@ public:
     return isDirect() || isExtend() || isCoerceAndExpand();
   }
 
+  // Direct/Extend accessors
+  unsigned getDirectOffset() const {
+    assert((isDirect() || isExtend()) && "Not a direct or extend kind");
+    return DirectAttr.Offset;
+  }
+
   bool canHavePaddingType() const {
     return isDirect() || isExtend() || isIndirect() || isIndirectAliased() ||
            isExpand();
