@@ -12,6 +12,7 @@ add_clang_library(ABILowering
   CIRRecordLayout.cpp
   RecordLayoutBuilder.cpp
   DataLayout.cpp
+  LowerFunction.cpp
 
   DEPENDS
 

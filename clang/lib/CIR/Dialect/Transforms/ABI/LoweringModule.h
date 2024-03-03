@@ -6,6 +6,7 @@
 #include "TargetLoweringInfo.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/PatternMatch.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -53,6 +54,9 @@ public:
     assert(MissingFeature::langOpts());
     return kind;
   }
+
+  void rewriteGlobalFunctionDefinition(FuncOp op, LoweringModule &state,
+                                       PatternRewriter &rewriter);
 };
 
 } // namespace cir

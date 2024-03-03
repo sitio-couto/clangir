@@ -1,5 +1,6 @@
 #include "LoweringModule.h"
 #include "CIRContext.h"
+#include "LowerFunction.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -62,6 +63,24 @@ const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   if (!TheTargetCodeGenInfo)
     TheTargetCodeGenInfo = createTargetLoweringInfo(*this);
   return *TheTargetCodeGenInfo;
+}
+
+/// Rewrites an existing function to conform to the ABI (e.g. follow calling
+/// conventions). This method tries to follow the original
+/// CodeGenModule::EmitGlobalFunctionDefinition method as closely as possible.
+/// However, they are inherently different.
+void LoweringModule::rewriteGlobalFunctionDefinition(
+    FuncOp op, LoweringModule &state, PatternRewriter &rewriter) {
+  const LoweringFunctionInfo &FI =
+      state.getTypes().arrangeGlobalDeclaration(op);
+  FuncType Ty = state.getTypes().getFunctionType(FI);
+
+  llvm::outs() << "Call Conv Lowering \n \tfrom: " << op.getFunctionType()
+               << "\n\tto: " << Ty << "\n";
+
+  auto newFn = rewriter.create<FuncOp>(op.getLoc(), op.getName(), Ty);
+
+  LowerFunction(*this, rewriter).generateCode(op, newFn, FI);
 }
 
 } // namespace cir

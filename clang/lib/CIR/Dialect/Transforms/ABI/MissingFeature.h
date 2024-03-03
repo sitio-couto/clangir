@@ -7,6 +7,12 @@ struct MissingFeature {
 
   static bool addresSpace() { return true; }
 
+  static bool sanitizers() { return true; }
+
+  static bool XRayInstrumentAttr() { return true; }
+
+  static bool profiling() { return true; }
+
   // CIR does not yet have a concept of language options. This is used to
   // control the behavior of the compiler in various areas. When dealing with
   // ABI, some options might affect the behaviour.

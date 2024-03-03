@@ -11,16 +11,24 @@
 #include "../../../Basic/Targets.h"
 
 #include "ABI/CIRContext.h"
+#include "ABI/CIRToCIRArgMapping.h"
 #include "ABI/LoweringFunctionInfo.h"
 #include "ABI/LoweringModule.h"
 #include "ABI/MissingFeature.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/ValueRange.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define GEN_PASS_DEF_CALLCONVLOWERING
@@ -59,11 +67,15 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     LoweringModule state(context, module, dataLayout, *targetInfo);
 
+    // Testing some stuff.
     const LoweringFunctionInfo &FI =
         state.getTypes().arrangeGlobalDeclaration(op);
     FuncType Ty = state.getTypes().getFunctionType(FI);
-    llvm::outs() << "Call Conv Lowering \n \tfrom: " << op.getFunctionType()
-                 << "\n\tto: " << Ty << "\n";
+    CIRToCIRArgMapping mapping(state.getContext(), FI);
+    mapping.getIRArgs(0);
+    // auto newOp =  rewriter.create<FuncOp>(op.getLoc(), op.getName(), Ty);
+
+    state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
     return success();
   }
