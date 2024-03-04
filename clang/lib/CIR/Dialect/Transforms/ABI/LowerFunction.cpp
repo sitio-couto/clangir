@@ -10,6 +10,7 @@
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TypeSize.h"
 
 namespace mlir {
 namespace cir {
@@ -24,6 +25,31 @@ Value buildAddressAtOffset(LowerFunction &LF, Value addr,
   return addr;
 }
 
+/// Given a struct pointer that we are accessing some number of bytes out of it,
+/// try to gep into the struct to get at its inner goodness.  Dive as deep as
+/// possible without entering an element with an in-memory size smaller than
+/// DstSize.
+static Value enterStructPointerForCoercedAccess(Value SrcPtr, StructType SrcSTy,
+                                                uint64_t DstSize,
+                                                LowerFunction &CGF) {
+  // We can't dive into a zero-element struct.
+  if (SrcSTy.getNumElements() == 0)
+    llvm_unreachable("NYI");
+
+  Type FirstElt = SrcSTy.getMembers()[0];
+
+  // If the first elt is at least as large as what we're looking for, or if the
+  // first element is the same size as the whole struct, we can enter it. The
+  // comparison must be made on the store size and not the alloca size. Using
+  // the alloca size may overstate the size of the load.
+  uint64_t FirstEltSize = CGF.LM.getDataLayout().getTypeStoreSize(FirstElt);
+  if (FirstEltSize < DstSize &&
+      FirstEltSize < CGF.LM.getDataLayout().getTypeStoreSize(SrcSTy))
+    return SrcPtr;
+
+  llvm_unreachable("NYI");
+}
+
 /// CreateCoercedStore - Create a store to \arg DstPtr from \arg Src,
 /// where the source and destination may have different types.  The
 /// destination is known to be aligned to \arg DstAlign bytes.
@@ -32,7 +58,47 @@ Value buildAddressAtOffset(LowerFunction &LF, Value addr,
 /// destination type; the upper bits of the src will be lost.
 void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
                         LowerFunction &CGF) {
-  llvm_unreachable("NYI");
+  Type SrcTy = Src.getType();
+  Type DstTy = Dst.getType();
+  if (SrcTy == DstTy) {
+    llvm_unreachable("NYI");
+  }
+
+  // FIXME(cir): We need a better way to handle datalayout queries.
+  assert(SrcTy.isa<IntType>());
+  llvm::TypeSize SrcSize = CGF.LM.getDataLayout().getTypeSizeInBits(SrcTy);
+
+  if (StructType DstSTy = DstTy.dyn_cast<StructType>()) {
+    Dst = enterStructPointerForCoercedAccess(Dst, DstSTy,
+                                             SrcSize.getFixedValue(), CGF);
+    assert(Dst.getType().isa<PointerType>());
+    DstTy = Dst.getType().cast<PointerType>().getPointee();
+  }
+
+  PointerType SrcPtrTy = SrcTy.dyn_cast<PointerType>();
+  PointerType DstPtrTy = DstTy.dyn_cast<PointerType>();
+  // TODO(cir): Implement address space.
+  if (SrcPtrTy && DstPtrTy && MissingFeature::addresSpace()) {
+    llvm_unreachable("NYI");
+  }
+
+  // If the source and destination are integer or pointer types, just do an
+  // extension or truncation to the desired type.
+  if ((SrcTy.isa<IntegerType>() || SrcTy.isa<PointerType>()) &&
+      (DstTy.isa<IntegerType>() || DstTy.isa<PointerType>())) {
+    llvm_unreachable("NYI");
+  }
+
+  llvm::TypeSize DstSize = CGF.LM.getDataLayout().getTypeAllocSize(DstTy);
+
+  // If store is legal, just bitcast the src pointer.
+  assert(MissingFeature::vectorType());
+  if (SrcSize.getFixedValue() <= DstSize.getFixedValue()) {
+    // Dst = Dst.withElementType(SrcTy);
+    CGF.buildAggregateStore(Src, Dst, DstIsVolatile);
+  } else {
+    llvm_unreachable("NYI");
+  }
 }
 
 } // namespace
@@ -190,6 +256,18 @@ void LowerFunction::startFunction(FuncOp GD, Type RetTy, FuncOp Fn,
   emitFunctionProlog(FnInfo, Fn, GD.getArguments());
 
   return;
+}
+
+void LowerFunction::buildAggregateStore(Value Val, Value Dest,
+                                        bool DestIsVolatile) {
+  // In LLVM codegen:
+  // Function to store a first-class aggregate into memory. We prefer to
+  // store the elements rather than the aggregate to be more friendly to
+  // fast-isel.
+  (void)DestIsVolatile;
+  assert(Dest.getType().isa<mlir::cir::PointerType>() &&
+         "This should only be called with a pointer type");
+  rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
 }
 
 } // namespace cir

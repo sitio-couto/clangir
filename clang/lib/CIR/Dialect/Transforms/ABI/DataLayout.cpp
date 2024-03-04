@@ -674,6 +674,7 @@ inline llvm::TypeSize CIRDataLayout::getTypeSizeInBits(Type Ty) const {
     // Get the layout annotation... which is lazily created on demand.
     return getStructLayout(structTy)->getSizeInBits();
   }
+  llvm::errs() << "Type: " << Ty << "\n";
   llvm_unreachable("CIRDataLayout::getTypeSizeInBits(): Unsupported type");
 }
 

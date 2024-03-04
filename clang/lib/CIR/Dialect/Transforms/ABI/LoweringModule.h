@@ -7,6 +7,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -42,6 +43,10 @@ public:
   const clang::TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
   MLIRContext *getMLIRContext() { return module.getContext(); }
+
+  const CIRDataLayout &getDataLayout() const {
+    return types.getDataLayout();
+  }
 
   const TargetLoweringInfo &getTargetLoweringInfo();
 

@@ -14,7 +14,6 @@ class LowerFunction {
 
   friend class CIRCXXABI;
 
-  LoweringModule &LM; // Per-module state.
   const clang::TargetInfo &Target;
 
   PatternRewriter &rewriter;
@@ -22,6 +21,8 @@ class LowerFunction {
 public:
   LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter);
   ~LowerFunction() = default;
+
+  LoweringModule &LM; // Per-module state.
 
   const clang::TargetInfo &getTarget() const { return Target; }
 
@@ -39,6 +40,11 @@ public:
   // sections in the original function are focused on codegen unrelated to the
   // ABI. Such sections are handled in CIR's codegen, not here.
   void generateCode(FuncOp GD, FuncOp Fn, const LoweringFunctionInfo &FnInfo);
+
+  // Emit the most simple cir.store possible (e.g. a store for a whole
+  // struct), which can later be broken down in other CIR levels (or prior
+  // to dialect codegen).
+  void buildAggregateStore(Value Val, Value Dest, bool DestIsVolatile);
 };
 
 } // namespace cir
