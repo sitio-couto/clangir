@@ -111,8 +111,12 @@ void CallConvLoweringPass::runOnOperation() {
       ops.push_back(op);
   });
 
+  // Configure rewrite to ignore newly created ops.
+  GreedyRewriteConfig config;
+  config.strictMode = GreedyRewriteStrictness::ExistingOps;
+
   // Apply patterns.
-  if (failed(applyOpPatternsAndFold(ops, std::move(patterns))))
+  if (failed(applyOpPatternsAndFold(ops, std::move(patterns), config)))
     signalPassFailure();
 }
 
