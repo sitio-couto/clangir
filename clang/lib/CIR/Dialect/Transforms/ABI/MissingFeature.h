@@ -36,6 +36,8 @@ struct MissingFeature {
   // These involve several warning messages which might not make sense in CIR.
   static bool diagnostics() { return true; }
 
+  static bool implicitParamDecl() { return true; }
+
   // CIR does not have enough information to easily distinguish certain
   // properties between language elements. For example, it can't distinguish
   // functions (ctor, dtor, method, etc), it does not carry attributes

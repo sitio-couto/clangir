@@ -215,11 +215,11 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
   if (getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()) {
     llvm_unreachable("NYI");
   } else {
-    for (unsigned I = 0, E = Args.size(); I != E; ++I) {
-      // TODO(cir): This requires a codegen method. We can duplicated it, which
-      // seems like an awful idea, or we create something new. Dunno.
-      llvm_unreachable("NYI");
-    }
+    // FIXME(cir): This requires a codegen method. For the example I'm testing,
+    // it does nothing, but we will likely need to duplicated it here in the
+    // future. for (unsigned I = 0, E = Args.size(); I != E; ++I)
+    //   buildParamDecl(Args[I], ArgVals[I], I + 1);
+    llvm::errs() << "Skipping buildParamDecl in emitFunctionProlog\n";
   }
 }
 
@@ -268,6 +268,40 @@ void LowerFunction::buildAggregateStore(Value Val, Value Dest,
   assert(Dest.getType().isa<mlir::cir::PointerType>() &&
          "This should only be called with a pointer type");
   rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
+}
+
+/// Emit an alloca (or GlobalValue depending on target)
+/// for the specified parameter and set up LocalDeclMap.
+void LowerFunction::buildParmDecl(const BlockArgument D, Value Arg,
+                                  unsigned ArgNo) {
+  // bool NoDebugInfo = false;
+
+  // // TODO(cir): When will Arg be a global?
+  // // TODO(cir): Set the name of the alloca.
+  // assert(!isa<GetGlobalOp>(Arg.getDefiningOp()));
+
+  // Type Ty = D.getType();
+
+  // // Use better IR generation for certain implicit parameters.
+  // if (MissingFeature::implicitParamDecl()) {
+  //   llvm_unreachable("NYI");
+  // }
+
+  // Value DeclPtr = {};
+  // Value AllocaPtr = {};
+  // bool DoStore = false;
+  // assert(MissingFeature::evaluationKind());
+  // bool UseIndirectDebugAddress = false;
+
+  // // If we already have a pointer to the argument, reuse the input pointer.
+  // if (Arg.isIndirect()) {
+  //   DeclPtr = Arg.getIndirectAddress();
+  //   DeclPtr = DeclPtr.withElementType(Ty);
+
+  //   // TODO(cir): needs arg info here.
+  // } else {
+  //   llvm_unreachable("NYI");
+  // }
 }
 
 } // namespace cir
