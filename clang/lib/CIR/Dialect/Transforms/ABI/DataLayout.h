@@ -1,6 +1,8 @@
 #pragma once
 
 #include "MissingFeature.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Support/LLVM.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/Alignment.h"
@@ -72,6 +74,11 @@ struct PointerAlignElem {
 /// generating LLVM IR is required to generate the right target data for the
 /// target being codegen'd to.
 class CIRDataLayout {
+  // FIXME(cir): This should in some what use the existing MLIR data layout
+  // infra. It might even be replaced by a CIRDataLayout interface which can
+  // provide the same functionalities.
+  DataLayout DL; // MLIR's DataLayout.
+
 public:
   enum class FunctionPtrAlignType {
     /// The function pointer alignment is independent of the function alignment.
@@ -130,7 +137,9 @@ private:
 
 public:
   /// Constructs a DataLayout from a specification string. See reset().
-  explicit CIRDataLayout(StringRef dataLayout) { reset(dataLayout); }
+  explicit CIRDataLayout(StringRef dataLayout, ModuleOp module) : DL(module) {
+    reset(dataLayout);
+  }
 
   /// Parse a data layout string (with fallback to default values).
   void reset(StringRef dataLayout);

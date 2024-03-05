@@ -43,6 +43,7 @@ public:
   const clang::TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
   MLIRContext *getMLIRContext() { return module.getContext(); }
+  ModuleOp &getModule() { return module; }
 
   const CIRDataLayout &getDataLayout() const {
     return types.getDataLayout();

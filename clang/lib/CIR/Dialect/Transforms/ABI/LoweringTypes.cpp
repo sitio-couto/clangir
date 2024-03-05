@@ -43,7 +43,7 @@ LoweringTypes::LoweringTypes(LoweringModule &LM, StringRef DLString)
     : LM(LM), context(LM.getContext()), Target(LM.getTarget()),
       CXXABI(LM.getCXXABI()),
       TheABIInfo(LM.getTargetLoweringInfo().getABIInfo()),
-      mlirContext(LM.getMLIRContext()), DL(DLString) {}
+      mlirContext(LM.getMLIRContext()), DL(DLString, LM.getModule()) {}
 
 unsigned LoweringTypes::clangCallConvToLLVMCallConv(clang::CallingConv CC) {
   switch (CC) {

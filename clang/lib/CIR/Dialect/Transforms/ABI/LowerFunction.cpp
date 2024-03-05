@@ -104,7 +104,7 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
 } // namespace
 
 LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter)
-    : LM(lm), Target(lm.getTarget()), rewriter(rewriter) {}
+    : Target(lm.getTarget()), rewriter(rewriter), LM(lm) {}
 
 void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
                                        FuncOp Fn,
