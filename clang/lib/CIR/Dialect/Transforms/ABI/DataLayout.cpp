@@ -5,6 +5,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/TypeSize.h"
 
 namespace mlir {
 namespace cir {
@@ -660,7 +661,15 @@ Align CIRDataLayout::getAlignment(Type Ty, bool abi_or_pref) const {
         abi_or_pref ? StructAlignment.ABIAlign : StructAlignment.PrefAlign;
     return std::max(Align, Layout->getAlignment());
   }
-  llvm_unreachable("CIRDataLayou::getAlignment(): Unsupported type");
+  if (auto PtrTy = Ty.dyn_cast<PointerType>()) {
+    // FIXME(cir): This does not account for differnt address spaces, and relies
+    // on CIR's data layout to give the proper alignment.
+    assert(MissingFeature::addresSpace());
+    uint align = abi_or_pref ? DL.getTypeABIAlignment(PtrTy) : DL.getTypePreferredAlignment(PtrTy);
+    return llvm::Align(align);
+  }
+  llvm::errs() << "Type: " << Ty << "\n";
+  llvm_unreachable("CIRDataLayout::getAlignment(): Unsupported type");
 }
 
 // The implementation of this method is provided inline as it is particularly
@@ -675,8 +684,10 @@ inline llvm::TypeSize CIRDataLayout::getTypeSizeInBits(Type Ty) const {
     return getStructLayout(structTy)->getSizeInBits();
   }
   if (auto PtrTy = Ty.dyn_cast<PointerType>()) {
-    // assert(MissingFeature::addresSpace());
-    // return llvm::TypeSize::getFixed(PtrTy);
+    // FIXME(cir): This does not account for differnt address spaces, and relies
+    // on CIR's data layout to give the proper ABI-specific type width.
+    assert(MissingFeature::addresSpace());
+    return llvm::TypeSize::getFixed(DL.getTypeSizeInBits(PtrTy));
   }
   llvm::errs() << "Type: " << Ty << "\n";
   llvm_unreachable("CIRDataLayout::getTypeSizeInBits(): Unsupported type");
