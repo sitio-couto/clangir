@@ -66,7 +66,7 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
 
   // FIXME(cir): We need a better way to handle datalayout queries.
   assert(SrcTy.isa<IntType>());
-  llvm::TypeSize SrcSize = CGF.LM.getDataLayout().getTypeSizeInBits(SrcTy);
+  llvm::TypeSize SrcSize = CGF.LM.getDataLayout().getTypeAllocSize(SrcTy);
 
   if (StructType DstSTy = DstTy.dyn_cast<StructType>()) {
     Dst = enterStructPointerForCoercedAccess(Dst, DstSTy,
