@@ -179,7 +179,7 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
       auto Alloca = rewriter.create<AllocaOp>(
           Fn.getLoc(), rewriter.getType<PointerType>(Ty), Ty,
           /*name=*/StringRef(""),
-          /*alignment=*/rewriter.getAttr<IntegerAttr>(APSInt(4)));
+          /*alignment=*/rewriter.getI64IntegerAttr(4));
 
       Value Ptr = buildAddressAtOffset(*this, Alloca.getResult(), ArgI);
 
@@ -264,9 +264,20 @@ void LowerFunction::buildAggregateStore(Value Val, Value Dest,
   // Function to store a first-class aggregate into memory. We prefer to
   // store the elements rather than the aggregate to be more friendly to
   // fast-isel.
+  assert(Dest.getType().isa<PointerType>() && "Storing in a non-pointer!");
   (void)DestIsVolatile;
-  assert(Dest.getType().isa<mlir::cir::PointerType>() &&
-         "This should only be called with a pointer type");
+
+  // Circumvent CIR's type checking.
+  Type pointeeTy = Dest.getType().cast<PointerType>().getPointee();
+  if (Val.getType() != pointeeTy) {
+    // NOTE(cir):  We only bitcast and store if the types have the same size.
+    assert((LM.getDataLayout().getTypeSizeInBits(Val.getType()) ==
+            LM.getDataLayout().getTypeSizeInBits(pointeeTy)) &&
+           "Incompatible types");
+    auto loc = Val.getLoc();
+    Val = rewriter.create<CastOp>(loc, pointeeTy, CastKind::bitcast, Val);
+  }
+
   rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
 }
 

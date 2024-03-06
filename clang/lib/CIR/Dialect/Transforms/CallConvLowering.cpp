@@ -78,6 +78,11 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
+    // TODO(cir): Identify where the prologue of an existing function ends.
+    // TODO(cir): Copy function body (after prologue) in to the new function.
+    // TODO(cir): Delete the old function.
+    // TODO(cir): Rewrite function calls with new signature.
+
     return success();
   }
 };

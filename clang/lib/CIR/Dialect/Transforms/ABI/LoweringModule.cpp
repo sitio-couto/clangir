@@ -78,7 +78,12 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   llvm::outs() << "Call Conv Lowering \n \tfrom: " << op.getFunctionType()
                << "\n\tto: " << Ty << "\n";
 
-  auto newFn = rewriter.create<FuncOp>(op.getLoc(), op.getName(), Ty);
+  // FIXME(cir): The clone below might be flawed. For example, if a parameter
+  // has an attribute but said parameter is coerced to multiple parameters, we
+  // will not perform any for of mapping or attribute drop to account for this.
+  // We need a proper procedure to rewrite a FuncOp and its properties properly.
+  FuncOp newFn = cast<FuncOp>(rewriter.cloneWithoutRegions(*op.getOperation()));
+  newFn.setType(Ty);
 
   LowerFunction(*this, rewriter).generateCode(op, newFn, FI);
 }
