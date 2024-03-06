@@ -4,6 +4,7 @@
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/PatternMatch.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -65,6 +66,25 @@ const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   return *TheTargetCodeGenInfo;
 }
 
+/// Returns the end of the function prologue.
+///
+/// The prologue is what is generated regardless of the function's body.
+/// Arguments allocations for example. To identify this, this method uses a
+/// naive approach of looking for the first store of the last argument.
+static Block::iterator
+setInsertionPointAtEndOfFunctionPrologue(FuncOp op, PatternRewriter &rewriter) {
+
+  // Get the last argument.
+  auto lastArg = op.getArguments().back();
+
+  // Look for the first store of the last argument.
+  for (auto &operand : lastArg.getUses())
+    if (auto store = dyn_cast<StoreOp>(operand.getOwner()))
+      rewriter.setInsertionPointAfter(store);
+
+  llvm_unreachable("Could not find the end of the function prologue");
+}
+
 /// Rewrites an existing function to conform to the ABI (e.g. follow calling
 /// conventions). This method tries to follow the original
 /// CodeGenModule::EmitGlobalFunctionDefinition method as closely as possible.
@@ -80,12 +100,17 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
 
   // FIXME(cir): The clone below might be flawed. For example, if a parameter
   // has an attribute but said parameter is coerced to multiple parameters, we
-  // will not perform any for of mapping or attribute drop to account for this.
-  // We need a proper procedure to rewrite a FuncOp and its properties properly.
+  // will not perform any for of mapping or attribute drop to account for
+  // this. We need a proper procedure to rewrite a FuncOp and its properties
+  // properly.
   FuncOp newFn = cast<FuncOp>(rewriter.cloneWithoutRegions(*op.getOperation()));
   newFn.setType(Ty);
 
   LowerFunction(*this, rewriter).generateCode(op, newFn, FI);
+
+  // setInsertionPointAtEndOfFunctionPrologue(op, rewriter);
+  // rewriter
+  // auto IP = getEndOfFunctionPrologue(op);
 }
 
 } // namespace cir

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CIRCXXABI.h"
+#include "mlir/IR/Location.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 #include "clang/Basic/TargetInfo.h"
@@ -30,12 +31,20 @@ public:
   void emitFunctionProlog(const LoweringFunctionInfo &FI, FuncOp Fn,
                           MutableArrayRef<BlockArgument> Args);
 
+  // TODO(cir): REVISE THIS CLASS.
+  // It does not make much sense to have a class that follows codegen parity
+  // considering that the ABI lowering pass is not codegen.
+
   // Parity with CodeGenFunction::StartFunction. Note that the Fn variable is
   // not a FuncOp, but a FuncType. In the original function, Fn is the result
   // LLVM IR function, but here we are going to .
   void startFunction(FuncOp GD, Type RetTy, FuncOp Fn,
                      llvm::MutableArrayRef<BlockArgument> &Args,
                      const LoweringFunctionInfo &FnInfo);
+
+  /// Complete IR generation of the current function. It is legal to call this
+  /// function even if there is no current insertion point.
+  void FinishFunction(Location EndLoc = UnknownLoc());
 
   // Parity with CodeGenFunction::GenerateCode. Keep in mind that several
   // sections in the original function are focused on codegen unrelated to the
@@ -63,7 +72,8 @@ public:
   //   }
   //   static ParamValue forIndirect(Value addr) {
   //     assert(addr.getType().isa<PointerType>());
-  //     addr.getType().cast<PointerType>().getABIAlignment(const ::mlir::DataLayout &dataLayout, ::mlir::DataLayoutEntryListRef params);
+  //     addr.getType().cast<PointerType>().getABIAlignment(const
+  //     ::mlir::DataLayout &dataLayout, ::mlir::DataLayoutEntryListRef params);
   //     assert(!addr.getAlig().isZero());
   //     return ParamValue(addr.getPointer(), addr.getElementType(),
   //                       addr.getAlignment().getQuantity());
@@ -86,7 +96,6 @@ public:
 
   /// Build a CIR function parameter declaration.
   void buildParmDecl(const BlockArgument D, Value Arg, unsigned ArgNo);
-
 };
 
 } // namespace cir

@@ -231,9 +231,29 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
   // NOTE(cir): Skipped some inline stuff from codegen here. Unlinkely that we
   // will need it for ABI lowering.
 
-  // NOTE(cir): We may have to emit/edit function debug info here.
+  // NOTE(cir): We may have to emit/edit function debug info here. Skipping it
+  // for now.
 
+  // NOTE(cir): Let codegen handle location stuff. No need to do it here.
+
+  // NOTE(cir): Lifetime markers should be dealt with in codegen.
+
+  // Emit the ABI-specific function prologue.
   startFunction(GD, ResTy, Fn, Args, FnInfo);
+
+  // FIXME(cir): What about sving parameters for corotines? Should we do
+  // something about it in this pass? If the change with the calling convention,
+  // we might have to handle this here.
+
+  // NOTE(cir): In the original codegen, this is where the function's body is
+  // generated. Since we already did this, and this pass lower's only calling
+  // conventions, we don't need to do anything here.
+
+  // TODO(cir): We should handle return values here as well.
+
+  // FIXME(cir): We probably need to emit the function epilogue here as well.
+  // The return type is ABI-related, so it should be properly updated by this
+  // pass.
 }
 
 // Parity with CodeGenFunction::StartFunction. Note that the Fn variable is not
