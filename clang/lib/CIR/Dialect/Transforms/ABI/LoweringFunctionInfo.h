@@ -29,10 +29,17 @@ public:
     /// zero/sign extension attribute.
     Extend,
 
+    /// Ignore the argument (treat as void). Useful for void and empty structs.
+    Ignore,
+
     /// Not yet supported.
     Indirect,
     IndirectAliased,
     Expand,
+    CoerceAndExpand,
+    InAlloca,
+    KindFirst = Direct,
+    KindLast = InAlloca
   };
 
 private:
@@ -91,6 +98,8 @@ public:
     AI.setCanBeFlattened(CanBeFlattened);
     return AI;
   }
+
+  static ABIArgInfo getIgnore() { return ABIArgInfo(Ignore); }
 
   Type getCoerceToType() const {
     assert(canHaveCoerceToType() && "Invalid kind!");

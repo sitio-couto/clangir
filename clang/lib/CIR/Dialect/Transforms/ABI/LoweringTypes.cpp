@@ -136,6 +136,9 @@ FuncType LoweringTypes::getFunctionType(const LoweringFunctionInfo &FI) {
   case ABIArgInfo::Direct:
     resultType = retAI.getCoerceToType();
     break;
+  case ABIArgInfo::Ignore:
+    resultType = VoidType::get(getMLIRContext());
+    break;
   default:
     llvm_unreachable("Missing ABIArgInfo::Kind");
   }

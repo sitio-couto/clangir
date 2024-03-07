@@ -13,6 +13,7 @@
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
@@ -280,7 +281,11 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   // CIR does not have this information yet. To prevent errors, the assertion
   // below was added.
   assert(MissingFeature::isBuiltinType());
-  assert(llvm::isa<IntType>(Ty) || llvm::isa<StructType>(Ty));
+  assert(Ty.isa<IntType>() || Ty.isa<StructType>() || Ty.isa<VoidType>());
+
+  if (Ty.isa<VoidType>()) {
+    Current = NoClass;
+  }
 
   if (llvm::isa<IntType>(Ty)) {
     // FIXME(cir): Clang's BuildingType::Kind allow comparisons (GT, LT, etc).
@@ -394,6 +399,15 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
 
   Type ResType = {};
   switch (Lo) {
+  case NoClass:
+    if (Hi == NoClass)
+      return ABIArgInfo::getIgnore();
+    // If the low part is just padding, it takes no register, leave ResType
+    // null.
+    assert((Hi == SSE || Hi == Integer || Hi == X87Up) &&
+           "Unknown missing lo part");
+    break;
+
   case Integer:
     ResType = GetINTEGERTypeAtOffset(RetTy, 0, RetTy, 0);
 
