@@ -106,11 +106,10 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   FuncOp newFn = cast<FuncOp>(rewriter.cloneWithoutRegions(*op.getOperation()));
   newFn.setType(Ty);
 
-  LowerFunction(*this, rewriter).generateCode(op, newFn, FI);
+  LowerFunction(*this, rewriter, op).generateCode(op, newFn, FI);
 
-  // setInsertionPointAtEndOfFunctionPrologue(op, rewriter);
-  // rewriter
-  // auto IP = getEndOfFunctionPrologue(op);
+  // Erase original ABI-agnostic function.
+  rewriter.eraseOp(op);
 }
 
 } // namespace cir

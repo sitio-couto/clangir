@@ -19,9 +19,10 @@ class LowerFunction {
   const clang::TargetInfo &Target;
 
   PatternRewriter &rewriter;
+  FuncOp SrcFn; // Original ABI-agnostic function.
 
 public:
-  LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter);
+  LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter, FuncOp srcFn);
   ~LowerFunction() = default;
 
   LoweringModule &LM; // Per-module state.

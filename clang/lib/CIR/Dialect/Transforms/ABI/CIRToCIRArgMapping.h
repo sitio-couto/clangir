@@ -15,6 +15,8 @@ class CIRToCIRArgMapping {
   unsigned TotalIRArgs;
 
   /// Arguments of CIR function corresponding to single CIR argument.
+  /// NOTE(cir): We add an MLIR block argument here indicating the actual
+  /// argument in the IR.
   struct IRArgs {
     unsigned PaddingArgIndex;
     // Argument is expanded to IR arguments at positions

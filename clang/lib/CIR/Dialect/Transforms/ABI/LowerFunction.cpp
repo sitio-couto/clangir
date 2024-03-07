@@ -11,6 +11,7 @@
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TypeSize.h"
+#include <algorithm>
 
 namespace mlir {
 namespace cir {
@@ -103,9 +104,13 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
 
 } // namespace
 
-LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter)
-    : Target(lm.getTarget()), rewriter(rewriter), LM(lm) {}
+LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter,
+                             FuncOp srcFn)
+    : Target(lm.getTarget()), rewriter(rewriter), SrcFn(srcFn), LM(lm) {}
 
+/// This method has partial parity with CodeGenFunction::EmitFunctionProlog from
+/// the original codegen. However, it focuses on the ABI-specific details. On
+/// top of that, it is also responsible for rewriting the original function.
 void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
                                        FuncOp Fn,
                                        MutableArrayRef<BlockArgument> Args) {
@@ -205,6 +210,20 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
         // original codegen?
         ArgVals.push_back(Alloca);
       }
+
+      // NOTE(cir): Once we have uncoerced the argument, we should be able to
+      // RAUW the original argument alloca with the new one. This assumes that
+      // the argument is used only to be stored in a alloca.
+      Value arg = SrcFn.getArgument(ArgNo);
+      assert(arg.hasOneUse());
+      for (auto *firstStore : arg.getUsers()) {
+        assert(isa<StoreOp>(firstStore));
+        auto argAlloca = cast<StoreOp>(firstStore).getAddr();
+        rewriter.replaceAllUsesWith(argAlloca, Alloca);
+        rewriter.eraseOp(firstStore);
+        rewriter.eraseOp(argAlloca.getDefiningOp());
+      }
+
       break;
     }
     default:
@@ -241,7 +260,21 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
   // Emit the ABI-specific function prologue.
   startFunction(GD, ResTy, Fn, Args, FnInfo);
 
-  // FIXME(cir): What about sving parameters for corotines? Should we do
+  // NOTE(cir): Now that we re-emitted the function with an ABI-specific
+  // prologue, we have to migrate the function's body. This assumes that all
+  // arguments of the original function were RAUW'd with the new ones.
+  // FIXME(cir): The implementation below is pretty trashy: will not work if
+  // SrcFn has multiple blocks; mixes the new and old prologues.
+  // FIXME(cir): Perhaps we can leverage MLIR's SignatureConversion to do this.
+  assert(std::all_of(Args.begin(), Args.end(),
+                     [](auto arg) { return arg.getUses().empty(); }) &&
+         "Missing RAUW?");
+  assert(SrcFn.getBody().hasOneBlock() &&
+         "Multiple blocks in original function not supported");
+  rewriter.mergeBlocks(&SrcFn.getBody().front(), &Fn.getBody().front(),
+                       Fn.getArguments());
+
+  // FIXME(cir): What about saving parameters for corotines? Should we do
   // something about it in this pass? If the change with the calling convention,
   // we might have to handle this here.
 
