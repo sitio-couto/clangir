@@ -15,6 +15,7 @@
 #include "llvm/IR/CallingConv.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 namespace mlir {
@@ -281,7 +282,10 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   // CIR does not have this information yet. To prevent errors, the assertion
   // below was added.
   assert(MissingFeature::isBuiltinType());
-  assert(Ty.isa<IntType>() || Ty.isa<StructType>() || Ty.isa<VoidType>());
+  if (!(Ty.isa<IntType>() || Ty.isa<StructType>() || Ty.isa<VoidType>())) {
+    llvm::outs() << "Missing X86 classification for type " << Ty << "\n";
+    llvm_unreachable("NYI");
+  }
 
   if (Ty.isa<VoidType>()) {
     Current = NoClass;

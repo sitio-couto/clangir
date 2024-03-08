@@ -68,14 +68,6 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     LoweringModule state(context, module, dataLayout, *targetInfo);
 
-    // Testing some stuff.
-    const LoweringFunctionInfo &FI =
-        state.getTypes().arrangeGlobalDeclaration(op);
-    FuncType Ty = state.getTypes().getFunctionType(FI);
-    CIRToCIRArgMapping mapping(state.getContext(), FI);
-    mapping.getIRArgs(0);
-    // auto newOp =  rewriter.create<FuncOp>(op.getLoc(), op.getName(), Ty);
-
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
     // TODO(cir): Handle return values.

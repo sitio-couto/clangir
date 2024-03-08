@@ -7,6 +7,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace mlir {
 namespace cir {
@@ -95,8 +96,13 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
       state.getTypes().arrangeGlobalDeclaration(op);
   FuncType Ty = state.getTypes().getFunctionType(FI);
 
-  llvm::outs() << "Call Conv Lowering \n \tfrom: " << op.getFunctionType()
-               << "\n\tto: " << Ty << "\n";
+  llvm::outs() << "Call Conv Lowering\n"
+               << "\tfrom: " << op.getFunctionType() << "\n"
+               << "\t  to: " << Ty << "\n";
+
+  // NOTE(cir): Even if the old function type and the new function type are the
+  // same, we still need to rewrite the function to conform to the ABI in most
+  // cases. For example, `void (u32i)` will be lowered to `void (zeroext u32i)`.
 
   // FIXME(cir): The clone below might be flawed. For example, if a parameter
   // has an attribute but said parameter is coerced to multiple parameters, we
