@@ -1,6 +1,8 @@
 #include "LoweringModule.h"
 #include "CIRContext.h"
 #include "LowerFunction.h"
+#include "LoweringFunctionInfo.h"
+#include "MissingFeature.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -57,9 +59,10 @@ createTargetLoweringInfo(LoweringModule &LM) {
 }
 
 LoweringModule::LoweringModule(CIRContext &C, ModuleOp &module, StringAttr DL,
-                               const clang::TargetInfo &target)
+                               const clang::TargetInfo &target,
+                               PatternRewriter &rewriter)
     : context(C), module(module), Target(target), ABI(createCXXABI(*this)),
-      types(*this, DL.getValue()) {}
+      types(*this, DL.getValue()), rewriter(rewriter) {}
 
 const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   if (!TheTargetCodeGenInfo)
@@ -67,23 +70,94 @@ const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   return *TheTargetCodeGenInfo;
 }
 
-/// Returns the end of the function prologue.
+void LoweringModule::setCIRFunctionAttributes(FuncOp GD,
+                                              const LoweringFunctionInfo &Info,
+                                              FuncOp F, bool IsThunk) {
+  unsigned CallingConv;
+  llvm::AttributeList PAL;
+  llvm_unreachable("TODO: Build attribute list");
+}
+
+void LoweringModule::setFunctionAttributes(FuncOp FD, FuncOp F,
+                                           bool IsIncompleteFunction,
+                                           bool IsThunk) {
+  // TODO(cir): Add query in FuncOp to check if it is complete.
+  if (!IsIncompleteFunction)
+    setCIRFunctionAttributes(FD, getTypes().arrangeGlobalDeclaration(FD), F,
+                             IsThunk);
+
+  // Add the Returned attribute for "this", except for iOS 5 and earlier
+  // where substantial code, including the libstdc++ dylib, was compiled with
+  // GCC and does not actually return "this".
+  if (!IsThunk && getCXXABI().hasThisReturn(FD) &&
+      !(getTriple().isiOS() && getTriple().isOSVersionLT(6))) {
+    llvm_unreachable("Returned attribute is NYI");
+  }
+
+  // NOTE(cir): Linkage is handled in CIRGen. No need to set it here.
+}
+
+/// If the specified mangled name is not in the module, create and return an
+/// llvm Function with the specified type. If there is something in the module
+/// with the specified name, return it potentially bitcasted to the right type.
 ///
-/// The prologue is what is generated regardless of the function's body.
-/// Arguments allocations for example. To identify this, this method uses a
-/// naive approach of looking for the first store of the last argument.
-static Block::iterator
-setInsertionPointAtEndOfFunctionPrologue(FuncOp op, PatternRewriter &rewriter) {
+/// If D is non-null, it specifies a decl that correspond to this.  This is used
+/// to set the attributes on the function when it is first created.
+FuncOp LoweringModule::getOrCreateCIRFunction(
+    StringRef MangledName, FuncType Ty, FuncOp GD, bool ForVTable,
+    bool DontDefer, bool IsThunk, ArrayAttr ExtraAttrs, bool IsForDefinition) {
 
-  // Get the last argument.
-  auto lastArg = op.getArguments().back();
+  // NOTE(cir): Skip some multi-version functio stuff here. This should be
+  // handled in CIRGen.
 
-  // Look for the first store of the last argument.
-  for (auto &operand : lastArg.getUses())
-    if (auto store = dyn_cast<StoreOp>(operand.getOwner()))
-      rewriter.setInsertionPointAfter(store);
+  // NOTE(cir): Skip entry lookup and creation. In this pass we already have
+  // the function we want to lower.
 
-  llvm_unreachable("Could not find the end of the function prologue");
+  // NOTE(cir): Also skip incomplete function's handling. CIRGen will take that.
+
+  // NOTE(cir): Here we clone the original function without regions allowing us
+  // to preserve everything except the type and body, which will both be
+  // replaced by an ABI-specific code. Attributes may be added, but the existing
+  // ones will be preserved. If some attribute should be dropped or converted to
+  // an ABI-specific one, do it here.
+  FuncOp F = cast<FuncOp>(rewriter.cloneWithoutRegions(GD));
+
+  // NOTE(cir): Skip declaration annotation and some other no-proto handling.
+
+  // Set up function attributes.
+  setFunctionAttributes(GD, F, false, IsThunk);
+  if (!ExtraAttrs.empty()) {
+    llvm_unreachable("ExtraAttrs are NYI");
+  }
+
+  return {};
+}
+
+/// Return the address of the given function.  If Ty is non-null, then this
+/// function will use the specified type if it has to create it (this occurs
+/// when we see a definition of the function).
+///
+/// NOTE(cir): This is a partial copy of the original CodeGenModule's
+/// GetAddrOfFunction method. A lot of codegen stuff is ignored here as it's
+/// handled in CIRGen.
+FuncOp LoweringModule::getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
+                                         bool DontDefer, bool IsForDefinition) {
+  // If there was no specific requested type, just convert it now.
+  if (!Ty) {
+    llvm_unreachable("Might happen in CIRGen, but not here, I think.");
+  }
+
+  // FIXME(cir): we might need to identify ctor and dtors for ABI lowering here.
+  if (!MissingFeature::isCtorOrDtor()) {
+    llvm_unreachable("Ctors and Dtors are not supported");
+  }
+
+  // NOTE(cir): No need to get the mangled name here. CIR's highest level
+  // already uses the mangled name (though we might change this later).
+
+  auto F = getOrCreateCIRFunction(GD.getName(), Ty, GD, ForVTable);
+
+  return {};
 }
 
 /// Rewrites an existing function to conform to the ABI (e.g. follow calling
@@ -109,8 +183,9 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   // will not perform any for of mapping or attribute drop to account for
   // this. We need a proper procedure to rewrite a FuncOp and its properties
   // properly.
-  FuncOp newFn = cast<FuncOp>(rewriter.cloneWithoutRegions(*op.getOperation()));
-  newFn.setType(Ty);
+  FuncOp newFn =
+      getAddrOfFunction(op, Ty, /*ForVTable=*/false, /*DontDefer=*/true,
+                        /*IsForDefinition=*/true);
 
   LowerFunction(*this, rewriter, op).generateCode(op, newFn, FI);
 

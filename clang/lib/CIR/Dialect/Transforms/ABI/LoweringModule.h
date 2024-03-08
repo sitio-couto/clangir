@@ -4,6 +4,7 @@
 #include "LoweringTypes.h"
 #include "MissingFeature.h"
 #include "TargetLoweringInfo.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
@@ -32,9 +33,11 @@ private:
 
   LoweringTypes types;
 
+  PatternRewriter &rewriter;
+
 public:
   LoweringModule(CIRContext &C, ModuleOp &module, StringAttr DL,
-                 const clang::TargetInfo &target);
+                 const clang::TargetInfo &target, PatternRewriter &rewriter);
   ~LoweringModule() = default;
 
   LoweringTypes &getTypes() { return types; }
@@ -45,9 +48,7 @@ public:
   MLIRContext *getMLIRContext() { return module.getContext(); }
   ModuleOp &getModule() { return module; }
 
-  const CIRDataLayout &getDataLayout() const {
-    return types.getDataLayout();
-  }
+  const CIRDataLayout &getDataLayout() const { return types.getDataLayout(); }
 
   const TargetLoweringInfo &getTargetLoweringInfo();
 
@@ -60,6 +61,21 @@ public:
     assert(MissingFeature::langOpts());
     return kind;
   }
+
+  void setCIRFunctionAttributes(FuncOp GD, const LoweringFunctionInfo &Info,
+                                FuncOp F, bool IsThunk);
+
+  void setFunctionAttributes(FuncOp GD, FuncOp F, bool IsIncompleteFunction,
+                             bool IsThunk);
+
+  FuncOp getOrCreateCIRFunction(
+      StringRef MangledName, FuncType Ty, FuncOp D, bool ForVTable,
+      bool DontDefer = false, bool IsThunk = false,
+      ArrayAttr ExtraAttrs = {}, // TODO(cir): __attribute__(()) stuff.
+      bool IsForDefinition = false);
+
+  FuncOp getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
+                           bool DontDefer, bool IsForDefinition);
 
   void rewriteGlobalFunctionDefinition(FuncOp op, LoweringModule &state,
                                        PatternRewriter &rewriter);

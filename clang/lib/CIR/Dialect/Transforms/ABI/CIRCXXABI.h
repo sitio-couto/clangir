@@ -1,6 +1,9 @@
 #pragma once
 
+#include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "LoweringFunctionInfo.h"
+#include "MissingFeature.h"
+
 namespace mlir {
 namespace cir {
 
@@ -18,6 +21,17 @@ protected:
 
 public:
   virtual ~CIRCXXABI();
+
+  /// Returns true if the given constructor or destructor is one of the
+  /// kinds that the ABI says returns 'this' (only applies when called
+  /// non-virtually for destructors).
+  ///
+  /// There currently is no way to indicate if a destructor returns 'this'
+  /// when called virtually, and code generation does not support the case.
+  virtual bool hasThisReturn(FuncOp GD) const {
+    assert(MissingFeature::isCtorOrDtor());
+    return false;
+  }
 
   /// If the C++ ABI requires the given type be returned in a particular way,
   /// this method sets RetAI and returns true.

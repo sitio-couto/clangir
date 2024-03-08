@@ -66,7 +66,7 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
     auto context = CIRContext(module.getContext(), langOpts);
     context.initBuiltinTypes(*targetInfo);
 
-    LoweringModule state(context, module, dataLayout, *targetInfo);
+    LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
 
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
