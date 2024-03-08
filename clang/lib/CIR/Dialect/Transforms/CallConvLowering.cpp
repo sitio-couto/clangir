@@ -95,22 +95,22 @@ void populateCallConvLoweringPassPatterns(RewritePatternSet &patterns) {
 
 void CallConvLoweringPass::runOnOperation() {
 
-  // Collect rewrite patterns.
+  // Collect rewrite patterns to be used in the pass.
   RewritePatternSet patterns(&getContext());
   populateCallConvLoweringPassPatterns(patterns);
 
-  // Collect operations to apply pattern.
+  // Collect operations to be considered by the pass.
   SmallVector<Operation *, 16> ops;
   getOperation()->walk([&](Operation *op) {
     if (isa<FuncOp>(op))
       ops.push_back(op);
   });
 
-  // Configure rewrite to ignore newly created ops.
+  // Configure rewrite to ignore new ops created during the pass.
   GreedyRewriteConfig config;
   config.strictMode = GreedyRewriteStrictness::ExistingOps;
 
-  // Apply patterns.
+  // Apply patterns to selected ops.
   if (failed(applyOpPatternsAndFold(ops, std::move(patterns), config)))
     signalPassFailure();
 }
