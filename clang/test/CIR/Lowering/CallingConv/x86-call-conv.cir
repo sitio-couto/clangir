@@ -23,6 +23,86 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return
   }
 
+  // TODO(cir): Support unsigned integers (zero-extend when necessary).
+
+  // // CHECK: cir.func @UChar(%arg0: !u8i) -> !u8i
+  // cir.func @UChar(%arg0: !u8i) -> !u8i {
+  //   cir.return %arg0 : !u8i
+  // }
+
+  // // CHECK: cir.func @UShort(%arg0: !u16i) -> !u16i
+  // cir.func @UShort(%arg0: !u16i) -> !u16i {
+  //   cir.return %arg0 : !u16i
+  // }
+
+  // // CHECK: cir.func @UInt(%arg0: !s32i) -> !s32i
+  // cir.func @UInt(%arg0: !s32i) -> !s32i {
+  //   cir.return %arg0 : !s32i
+  // }
+
+  // // CHECK: cir.func @ULong(%arg0: !u64i) -> !u64i
+  // cir.func @ULong(%arg0: !u64i) -> !u64i {
+  //   cir.return %arg0 : !u64i
+  // }
+
+  // // CHECK: cir.func @ULongLong(%arg0: !u64i) -> !u64i
+  // cir.func @ULongLong(%arg0: !u64i) -> !u64i {
+  //   cir.return %arg0 : !u64i
+  // }
+
+  // TODO(cir): Support signed integers (sign-extend when necessary).
+
+  // // CHECK: cir.func @Char(%arg0: !s8i) -> !s8i
+  // cir.func @Char(%arg0: !s8i) -> !s8i {
+  //   cir.return %arg0 : !s8i
+  // }
+
+  // // CHECK: cir.func @SChar(%arg0: !s8i) -> !s8i
+  // cir.func @SChar(%arg0: !s8i) -> !s8i {
+  //   cir.return %arg0 : !s8i
+  // }
+
+  // // CHECK: cir.func @SShort(%arg0: !s16i) -> !s16i
+  // cir.func @SShort(%arg0: !s16i) -> !s16i {
+  //   cir.return %arg0 : !s16i
+  // }
+
+  // // CHECK: cir.func @SLong(%arg0: !s64i) -> !s64i
+  // cir.func @SLong(%arg0: !s64i) -> !s64i {
+  //   cir.return %arg0 : !s64i
+  // }
+
+  // // CHECK: cir.func @SLongLong(%arg0: !s64i) -> !s64i
+  // cir.func @SLongLong(%arg0: !s64i) -> !s64i {
+  //   cir.return %arg0 : !s64i
+  // }
+
+  // TODO(cir): Floating point types.
+
+  // // CHECK: cir.func @Float(%arg0: f32) -> f32
+  // cir.func @Float(%arg0: f32) -> f32 {
+  //   cir.return %arg0 : f32
+  // }
+
+  // // CHECK: cir.func @Double(%arg0: f64) -> f64
+  // cir.func @Double(%arg0: f64) -> f64 {
+  //   cir.return %arg0 : f64
+  // }
+
+  // // CHECK: cir.func @Bool(%arg0: !cir.bool) -> !cir.bool
+  // cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
+  //   cir.return %arg0 : !cir.bool
+  // }
+
+  // TODO(cir): Support pointer types.
+
+  // // CHECK: cir.func @Ptr(%arg0: !cir.ptr<!s32i>) -> !cir.ptr<!s32i>
+  // cir.func @Ptr(%arg0: !cir.ptr<!s32i>) -> !cir.ptr<!s32i> {
+  //   cir.return %arg0 : !cir.ptr<!s32i>
+  // }
+
+  // TODO(cir): Support struct types coercion.
+
   // cir.func @coerceStructToI64(%arg0: !u64i) {
   cir.func @coerceStructToI64(%arg0: !ty_22CoerceToI6422) {
     // CHECK: %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, [""] {alignment = 4 : i64}
