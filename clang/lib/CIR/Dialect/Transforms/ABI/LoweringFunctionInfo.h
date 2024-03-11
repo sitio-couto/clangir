@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MissingFeature.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -57,10 +58,34 @@ private:
   };
   Kind kind;
   bool CanBeFlattened : 1; // isDirect()
+  bool InReg : 1;          // isDirect() || isExtend() || isIndirect()
+  bool SignExt : 1;        // isExtend()
 
 public:
-  ABIArgInfo(Kind kind = Direct) : kind(kind){};
+  ABIArgInfo(Kind kind = Direct) : kind(kind), InReg(false), SignExt(false){};
   ~ABIArgInfo() = default;
+
+  // ABIArgInfo will record the argument as being extended based on the sign
+  // of its type.
+  //
+  // NOTE(cir): The original can apply this method on both integers and
+  // enumerations, but in CIR, these two types are one and the same.
+  static ABIArgInfo getExtend(IntType Ty, Type T = nullptr) {
+    if (Ty.isSigned())
+      llvm_unreachable("NYI");
+    return getZeroExtend(Ty, T);
+  }
+
+  static ABIArgInfo getZeroExtend(IntType Ty, Type T = nullptr) {
+    // NOTE(cir): Enumerations are IntTypes in CIR.
+    auto AI = ABIArgInfo(Extend);
+    AI.setCoerceToType(T);
+    AI.setPaddingType(nullptr);
+    AI.setDirectOffset(0);
+    AI.setDirectAlign(0);
+    AI.setSignExt(false);
+    return AI;
+  }
 
   void setCanBeFlattened(bool Flatten) {
     assert(isDirect() && "Invalid kind!");
@@ -115,6 +140,24 @@ public:
   bool isCoerceAndExpand() const {
     MissingFeature::isCoerceAndExpand();
     llvm_unreachable("NYI");
+  }
+
+  bool isSignExt() const {
+    assert(isExtend() && "Invalid kind!");
+    return SignExt;
+  }
+  void setSignExt(bool SExt) {
+    assert(isExtend() && "Invalid kind!");
+    SignExt = SExt;
+  }
+
+  bool getInReg() const {
+    assert((isDirect() || isExtend() || isIndirect()) && "Invalid kind!");
+    return InReg;
+  }
+  void setInReg(bool IR) {
+    assert((isDirect() || isExtend() || isIndirect()) && "Invalid kind!");
+    InReg = IR;
   }
 
   bool canHaveCoerceToType() const {
@@ -245,6 +288,10 @@ public:
 
   typedef const ArgInfo *const_arg_iterator;
   typedef ArgInfo *arg_iterator;
+
+  MutableArrayRef<ArgInfo> arguments() {
+    return MutableArrayRef<ArgInfo>(arg_begin(), NumArgs);
+  }
 
   const_arg_iterator arg_begin() const { return getArgsBuffer() + 1; }
   const_arg_iterator arg_end() const { return getArgsBuffer() + 1 + NumArgs; }

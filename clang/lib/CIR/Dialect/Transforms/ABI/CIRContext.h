@@ -131,6 +131,9 @@ public:
 
   TypeInfoChars getTypeInfoInChars(Type T) const;
 
+  /// More type predicates useful for type checking/promotion
+  bool isPromotableIntegerType(Type T) const; // C99 6.3.1.1p2
+
   /// Get or compute information about the layout of the specified
   /// record (struct/union/class) \p D, which indicates its size and field
   /// position information.

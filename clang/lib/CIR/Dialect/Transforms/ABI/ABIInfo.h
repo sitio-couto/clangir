@@ -30,6 +30,10 @@ public:
   const CIRDataLayout &getDataLayout() const;
 
   virtual void computeInfo(LoweringFunctionInfo &FI) const = 0;
+
+  // Implement the Type::IsPromotableIntegerType for ABI specific needs. The
+  // only difference is that this considers bit-precise integer types as well.
+  bool isPromotableIntegerTypeForABI(Type Ty) const;
 };
 
 } // namespace cir

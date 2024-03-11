@@ -38,6 +38,9 @@ struct MissingFeature {
 
   static bool implicitParamDecl() { return true; }
 
+  // Some ABI-specific attributes have not yet been implemented in CIR.
+  static bool noFPClassAttr() { return true; }
+
   // CIR does not have enough information to easily distinguish certain
   // properties between language elements. For example, it can't distinguish
   // functions (ctor, dtor, method, etc), it does not carry attributes
@@ -60,6 +63,7 @@ struct MissingFeature {
   static bool alignNaturalAttr() { return true; }
   static bool maxFieldAlignmentAttr() { return true; }
   static bool noUniqueAddressAttr() { return true; }
+  static bool isReferenceType() { return true; }
 
   // Abstraction to be created in CIR (not necessarily through interfaces).
   static bool fieldDeclAbs() { return true; } // Record field of any type.

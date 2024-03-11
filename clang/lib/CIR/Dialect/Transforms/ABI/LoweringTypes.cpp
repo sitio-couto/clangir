@@ -122,6 +122,19 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
     getABIInfo().computeInfo(*FI);
   }
 
+  // Loop over all of the computed argument and return value info. If any of
+  // them are direct or extend without a specified coerce type, specify the
+  // default now.
+  ABIArgInfo &retInfo = FI->getReturnInfo();
+  if (retInfo.canHaveCoerceToType() && retInfo.getCoerceToType() == nullptr)
+    retInfo.setCoerceToType(FI->getReturnType());
+
+  for (auto &I : FI->arguments())
+    if (I.info.canHaveCoerceToType() && I.info.getCoerceToType() == nullptr)
+      I.info.setCoerceToType(I.type);
+
+  assert(MissingFeature::recursiveFunctionProcessing());
+
   return *FI;
 }
 
@@ -133,6 +146,7 @@ FuncType LoweringTypes::getFunctionType(const LoweringFunctionInfo &FI) {
   mlir::Type resultType = {};
   const ABIArgInfo &retAI = FI.getReturnInfo();
   switch (retAI.getKind()) {
+  case ABIArgInfo::Extend:
   case ABIArgInfo::Direct:
     resultType = retAI.getCoerceToType();
     break;
@@ -165,6 +179,7 @@ FuncType LoweringTypes::getFunctionType(const LoweringFunctionInfo &FI) {
     std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
 
     switch (ArgInfo.getKind()) {
+    case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       // Fast-isel and the optimizer generally like scalar values better than
       // FCAs, so we flatten them if this is safe to do for this argument.

@@ -1,15 +1,22 @@
 #include "LoweringModule.h"
 #include "CIRContext.h"
+#include "CIRToCIRArgMapping.h"
 #include "LowerFunction.h"
 #include "LoweringFunctionInfo.h"
 #include "MissingFeature.h"
 #include "TargetInfo.h"
 #include "TargetLoweringInfo.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include <tuple>
 
 namespace mlir {
 namespace cir {
@@ -70,18 +77,191 @@ const TargetLoweringInfo &LoweringModule::getTargetLoweringInfo() {
   return *TheTargetCodeGenInfo;
 }
 
+/// Construct the ABI-specific IR attribute list of a function or call.
+///
+/// NOTE(cir): This method copies CodeGenModule::ConstructAttributeList, but
+/// only partially. The parts copied here are the ones focussed on calling
+/// conventions that direclty affect a function's signature. For example, the
+/// zero/signext parameter attributes that indicate if a type has to be extended
+/// to the target's architecture lenght. With this in mind, before adding an
+/// attribute, consider where it should be handled: In CIRGen, if
+/// codegen-related; here, if call conv related; or in a different pass, if not
+/// codegen and call conv related.
+///
+/// NOTE(cir): Another notable difference is that we are not using an
+/// AttributeList abstraction like the original method. Instead, we are binding
+/// the attributes directly to the function as we go through MLIR's
+/// FunctionOpInterface.
+void LoweringModule::constructAttributeList(
+    StringRef Name, const LoweringFunctionInfo &FI,
+    FuncOp CalleeInfo, // TODO(cir): Implement CalleeInfo class?
+    FuncOp newFn, unsigned &CallingConv, bool AttrOnCallSite, bool IsThunk) {
+  SmallVector<Attribute> FuncAttrs;
+  // SmallVector<Attribute> RetAttrs;
+
+  CallingConv = FI.getCallingConvention();
+
+  // NOTE(cir): We will skip a lot of attributes added by the original method
+  // since they are mostly related codegen and would be better handled in
+  // CIRGen.
+
+  // TODO(cir): Implement CSME NS Call attribute for ARM. This is an external
+  // attribute (e.g. __attribute__), I think.
+
+  // FIXME(vini): Improve this comment.
+  // TODO(cir): AddAttributesFromFunctionProtoType
+  // TODO(cir): AddAttributesFromAssumes
+
+  // // Some ABIs may result in additional accesses to arguments that may
+  // // otherwise not be present.
+  // auto AddPotentialArgAccess = [&]() {
+  //   llvm_unreachable("AddPotentialArgAccess is NYI");
+  // };
+
+  // TODO(cir): Regarding CodeGenModule::getDefaultFunctionAttributes:
+  // There might be ABI-specific function attributes that are set by this method
+  // that should be handled here. For example, attributes such as
+  // "__attribute__((stdcall))" that enforce a specific calling convention.
+  // However, most of these attributes are handled in CIRGen and there's
+  // currently no implementation of such in CIR.
+
+  // TODO(cir): Regarding CodeGenModule::GetCPUAndFeaturesAttributes:
+  // This method sets the CPU and Features attributes for the function (e.g.
+  // mmx, x87, etc.), which a target specific function attribute, but unrelated
+  // to the ABI and call conv. I would prefer to handle this on a separate
+  // target lowering pass.
+
+  // Collect attributes from arguments and return values.
+  CIRToCIRArgMapping IRFunctionArgs(getContext(), FI);
+
+  // Type RetTy = FI.getReturnType();
+  const ABIArgInfo &RetAI = FI.getReturnInfo();
+  // const CIRDataLayout &DL = getDataLayout();
+
+  // TODO(cir): NoUndef attribute for return values partially depends on
+  // ABI-specific information. Maybe we should include it here.
+
+  switch (RetAI.getKind()) {
+  case ABIArgInfo::Extend:
+    if (RetAI.isSignExt())
+      llvm_unreachable("SignExt attribute is NYI");
+    else
+      // FIXME(cir): Add a proper abstraction to create attributes.
+      newFn.setResultAttr(0, "zeroext", rewriter.getUnitAttr());
+    [[fallthrough]];
+  case ABIArgInfo::Direct:
+    if (RetAI.getInReg())
+      llvm_unreachable("InReg attribute is NYI");
+    assert(MissingFeature::noFPClassAttr());
+    break;
+  default:
+    llvm_unreachable("Missing ABIArgInfo::Kind");
+  }
+
+  if (!IsThunk) {
+    if (!MissingFeature::isReferenceType()) {
+      llvm_unreachable("Reference handling is NYI");
+    }
+  }
+
+  // bool hasUsedSRet = false;
+  // SmallVector<NamedAttrList, 4> ArgAttrs(IRFunctionArgs.totalIRArgs());
+
+  // Attach attributes to sret.
+  if (!MissingFeature::sretArgument()) {
+    llvm_unreachable("sret is NYI");
+  }
+
+  // Attach attributes to inalloca argument.
+  if (!MissingFeature::inallocaArgument()) {
+    llvm_unreachable("inalloca is NYI");
+  }
+
+  // Apply `nonnull`, `dereferencable(N)` and `align N` to the `this` argument,
+  // unless this is a thunk function.
+  // FIXME: fix this properly, https://reviews.llvm.org/D100388
+  if (!MissingFeature::isMethod() || !MissingFeature::inallocaArgument()) {
+    llvm_unreachable("`this` argument attributes are NYI");
+  }
+
+  unsigned ArgNo = 0;
+  for (LoweringFunctionInfo::const_arg_iterator I = FI.arg_begin(),
+                                                E = FI.arg_end();
+       I != E; ++I, ++ArgNo) {
+    // Type ParamType = I->type;
+    const ABIArgInfo &AI = I->info;
+    SmallVector<NamedAttribute> Attrs;
+
+    // Add attribute for padding argument, if necessary.
+    if (IRFunctionArgs.hasPaddingArg(ArgNo)) {
+      llvm_unreachable("Padding argument is NYI");
+    }
+
+    // TODO(cir): Mark noundef arguments and return values. Although this
+    // attribute is not a part of the call conve, it uses it to determine if a
+    // value is noundef (e.g. if an argument is passed direct, indirectly, etc).
+
+    // 'restrict' -> 'noalias' is done in EmitFunctionProlog when we
+    // have the corresponding parameter variable.  It doesn't make
+    // sense to do it here because parameters are so messed up.
+    switch (AI.getKind()) {
+    case ABIArgInfo::Extend:
+      if (RetAI.isSignExt())
+        llvm_unreachable("SignExt attribute is NYI");
+      else
+        // FIXME(cir): Add a proper abstraction to create attributes.
+        Attrs.push_back(
+            rewriter.getNamedAttr("zeroext", rewriter.getUnitAttr()));
+      [[fallthrough]];
+    case ABIArgInfo::Direct:
+      if (ArgNo == 0 && !MissingFeature::chainCall())
+        llvm_unreachable("ChainCall is NYI");
+      else if (AI.getInReg())
+        llvm_unreachable("InReg attribute is NYI");
+      // Attrs.addStackAlignmentAttr(llvm::MaybeAlign(AI.getDirectAlign()));
+      assert(MissingFeature::noFPClassAttr());
+      break;
+    default:
+      llvm_unreachable("Missing ABIArgInfo::Kind");
+    }
+
+    if (!MissingFeature::isReferenceType()) {
+      llvm_unreachable("Reference handling is NYI");
+    }
+
+    // TODO(cir): Missing some swift and nocapture stuff here.
+    assert(MissingFeature::extParamInfo());
+
+    if (!Attrs.empty()) {
+      unsigned FirstIRArg, NumIRArgs;
+      std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
+      for (unsigned i = 0; i < NumIRArgs; i++)
+        newFn.setArgAttrs(FirstIRArg + i, Attrs);
+    }
+  }
+  assert(ArgNo == FI.arg_size());
+
+  // NOTE(cir): We do not need to set the Attrs argument here. We are binding
+  // the attributes to the function as we go.
+}
+
 void LoweringModule::setCIRFunctionAttributes(FuncOp GD,
                                               const LoweringFunctionInfo &Info,
                                               FuncOp F, bool IsThunk) {
   unsigned CallingConv;
-  llvm::AttributeList PAL;
-  llvm_unreachable("TODO: Build attribute list");
+  // NOTE(cir): The method below will update the F function with the proper
+  // attributes.
+  constructAttributeList(GD.getName(), Info, GD, F, CallingConv,
+                         /*AttrOnCallSite=*/false, IsThunk);
+  // TODO(cir): Set Function's calling convention.
 }
 
 void LoweringModule::setFunctionAttributes(FuncOp FD, FuncOp F,
                                            bool IsIncompleteFunction,
                                            bool IsThunk) {
   // TODO(cir): Add query in FuncOp to check if it is complete.
+  // FIXME(cir): Why do we call arrageGlobalDeclaration here? We already have F
+  // which is the function we want to lower.
   if (!IsIncompleteFunction)
     setCIRFunctionAttributes(FD, getTypes().arrangeGlobalDeclaration(FD), F,
                              IsThunk);
@@ -99,13 +279,17 @@ void LoweringModule::setFunctionAttributes(FuncOp FD, FuncOp F,
 
 /// If the specified mangled name is not in the module, create and return an
 /// llvm Function with the specified type. If there is something in the module
-/// with the specified name, return it potentially bitcasted to the right type.
+/// with the specified name, return it potentially bitcasted to the right
+/// type.
 ///
-/// If D is non-null, it specifies a decl that correspond to this.  This is used
-/// to set the attributes on the function when it is first created.
-FuncOp LoweringModule::getOrCreateCIRFunction(
-    StringRef MangledName, FuncType Ty, FuncOp GD, bool ForVTable,
-    bool DontDefer, bool IsThunk, ArrayAttr ExtraAttrs, bool IsForDefinition) {
+/// If D is non-null, it specifies a decl that correspond to this.  This is
+/// used to set the attributes on the function when it is first created.
+FuncOp LoweringModule::getOrCreateCIRFunction(StringRef MangledName,
+                                              FuncType Ty, FuncOp GD,
+                                              bool ForVTable, bool DontDefer,
+                                              bool IsThunk,
+                                              ArrayRef<Attribute> ExtraAttrs,
+                                              bool IsForDefinition) {
 
   // NOTE(cir): Skip some multi-version functio stuff here. This should be
   // handled in CIRGen.
@@ -113,24 +297,39 @@ FuncOp LoweringModule::getOrCreateCIRFunction(
   // NOTE(cir): Skip entry lookup and creation. In this pass we already have
   // the function we want to lower.
 
-  // NOTE(cir): Also skip incomplete function's handling. CIRGen will take that.
+  // NOTE(cir): Also skip incomplete function's handling. CIRGen will take
+  // that.
 
-  // NOTE(cir): Here we clone the original function without regions allowing us
-  // to preserve everything except the type and body, which will both be
-  // replaced by an ABI-specific code. Attributes may be added, but the existing
-  // ones will be preserved. If some attribute should be dropped or converted to
-  // an ABI-specific one, do it here.
+  // NOTE(cir): Here we clone the original function without regions allowing
+  // us to preserve everything except the type and body, which will both be
+  // replaced by an ABI-specific code. Attributes may be added, but the
+  // existing ones will be preserved. If some attribute should be dropped or
+  // converted to an ABI-specific one, do it here.
   FuncOp F = cast<FuncOp>(rewriter.cloneWithoutRegions(GD));
+  F.setType(Ty);
 
   // NOTE(cir): Skip declaration annotation and some other no-proto handling.
 
   // Set up function attributes.
   setFunctionAttributes(GD, F, false, IsThunk);
+  llvm::outs() << "New Attributes: \n"
+               << "\tResult: " << F.getResAttrs() << "\n"
+               << "\tArgs: " << F.getArgAttrs() << "\n";
   if (!ExtraAttrs.empty()) {
     llvm_unreachable("ExtraAttrs are NYI");
   }
 
-  return {};
+  // FIXME(cir): Does this make sense here? Deferring is a codegen thing, I
+  // think. There is som ABI-specific stuff here though.
+  if (!DontDefer) {
+    llvm_unreachable("DontDefer is NYI");
+  } else if (!MissingFeature::langOptions()) {
+    llvm_unreachable("LangOptions is NYI");
+  }
+
+  // NOTE(cir): Leave incomplete function checks to CIRGen.
+
+  return F;
 }
 
 /// Return the address of the given function.  If Ty is non-null, then this
@@ -147,17 +346,20 @@ FuncOp LoweringModule::getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
     llvm_unreachable("Might happen in CIRGen, but not here, I think.");
   }
 
-  // FIXME(cir): we might need to identify ctor and dtors for ABI lowering here.
+  // FIXME(cir): we might need to identify ctor and dtors for ABI lowering
+  // here.
   if (!MissingFeature::isCtorOrDtor()) {
     llvm_unreachable("Ctors and Dtors are not supported");
   }
 
   // NOTE(cir): No need to get the mangled name here. CIR's highest level
   // already uses the mangled name (though we might change this later).
+  auto F = getOrCreateCIRFunction(GD.getName(), Ty, GD, ForVTable, DontDefer);
 
-  auto F = getOrCreateCIRFunction(GD.getName(), Ty, GD, ForVTable);
-
-  return {};
+  if (!MissingFeature::langOptions() && !MissingFeature::CUDA()) {
+    llvm_unreachable("CUDA is NYI");
+  }
+  return F;
 }
 
 /// Rewrites an existing function to conform to the ABI (e.g. follow calling
@@ -174,9 +376,10 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
                << "\tfrom: " << op.getFunctionType() << "\n"
                << "\t  to: " << Ty << "\n";
 
-  // NOTE(cir): Even if the old function type and the new function type are the
-  // same, we still need to rewrite the function to conform to the ABI in most
-  // cases. For example, `void (u32i)` will be lowered to `void (zeroext u32i)`.
+  // NOTE(cir): Even if the old function type and the new function type are
+  // the same, we still need to rewrite the function to conform to the ABI in
+  // most cases. For example, `void (u32i)` will be lowered to `void (zeroext
+  // u32i)`.
 
   // FIXME(cir): The clone below might be flawed. For example, if a parameter
   // has an attribute but said parameter is coerced to multiple parameters, we

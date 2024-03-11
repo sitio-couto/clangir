@@ -40,6 +40,11 @@ public:
 
   unsigned totalIRArgs() const { return TotalIRArgs; }
 
+  bool hasPaddingArg(unsigned ArgNo) const {
+    assert(ArgNo < ArgInfo.size());
+    return ArgInfo[ArgNo].PaddingArgIndex != InvalidIndex;
+  }
+
   void construct(const CIRContext &context, const LoweringFunctionInfo &FI,
                  bool onlyRequiredArgs = false) {
     unsigned IRArgNo = 0;

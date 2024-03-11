@@ -20,5 +20,12 @@ const CIRDataLayout &ABIInfo::getDataLayout() const {
   return LT.getDataLayout();
 }
 
+bool ABIInfo::isPromotableIntegerTypeForABI(Type Ty) const {
+  if (getContext().isPromotableIntegerType(Ty))
+    return true;
+
+  llvm_unreachable("unhandled integer type");
+}
+
 } // namespace cir
 } // namespace mlir

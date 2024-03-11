@@ -117,7 +117,11 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
   CIRToCIRArgMapping IRFunctionArgs(LM.getContext(), FI);
   assert(Fn.getNumArguments() == IRFunctionArgs.totalIRArgs());
 
+  // If we're using inalloca, all the memory arguments are GEPs off of the last
+  // parameter, which is a pointer to the complete memory area.
   assert(MissingFeature::inallocaArgument());
+
+  // Name the struct return parameter.
   assert(MissingFeature::sretArgument());
 
   // Track if we received the parameter as a pointer (indirect, byval, or
@@ -155,6 +159,7 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
     std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
 
     switch (ArgI.getKind()) {
+    case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       auto AI = Fn.getArgument(FirstIRArg);
       Type LTy = Arg.getType();
@@ -171,7 +176,31 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
       // with no muss and fuss.
       if (!isa<StructType>(ArgI.getCoerceToType()) &&
           ArgI.getCoerceToType() == Ty && ArgI.getDirectOffset() == 0) {
-        llvm_unreachable("NYI");
+        assert(NumIRArgs == 1);
+
+        // LLVM expects swifterror parameters to be used in very restricted
+        // ways. Copy the value into a less-restricted temporary.
+        Value V = AI;
+        if (!MissingFeature::extParamInfo()) {
+          llvm_unreachable("NYI");
+        }
+
+        // Ensure the argument is the correct type.
+        if (V.getType() != ArgI.getCoerceToType())
+          llvm_unreachable("NYI");
+
+        if (isPromoted)
+          llvm_unreachable("NYI");
+
+        ArgVals.push_back(V);
+
+        // NOTE(cir): Here we have a trivial case, which means we can just
+        // replace all uses of the original argument with the new one.
+        Value oldArg = SrcFn.getArgument(ArgNo);
+        Value newArg = Fn.getArgument(FirstIRArg);
+        rewriter.replaceAllUsesWith(oldArg, newArg);
+
+        break;
       }
 
       assert(MissingFeature::vectorType());
@@ -227,7 +256,7 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
       break;
     }
     default:
-      llvm_unreachable("NYI");
+      llvm_unreachable("Unhandled ABIArgInfo::Kind");
     }
   }
 

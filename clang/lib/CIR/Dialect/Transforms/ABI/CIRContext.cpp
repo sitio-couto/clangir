@@ -57,7 +57,8 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
       // NOTE(cir): This assumes int types are already ABI-specific.
       // FIXEME(cir): Use data layout interface here instead.
       Width = intTy.getWidth();
-      // FIXME(cir): We get the aligment in bits. But this is probably wrong for stuff like short types.
+      // FIXME(cir): We get the aligment in bits. But this is probably wrong for
+      // stuff like short types.
       Align = intTy.getWidth();
       break;
     } else {
@@ -140,6 +141,29 @@ TypeInfoChars CIRContext::getTypeInfoInChars(Type T) const {
   TypeInfo Info = getTypeInfo(T);
   return TypeInfoChars(toCharUnitsFromBits(Info.Width),
                        toCharUnitsFromBits(Info.Align), Info.AlignRequirement);
+}
+
+bool CIRContext::isPromotableIntegerType(Type T) const {
+  // HLSL doesn't promote all small integer types to int, it
+  // just uses the rank-based promotion rules for all types.
+  if (getLangOpts().HLSL)
+    llvm_unreachable("NYI");
+
+  // FIXME(cir): We have no way of properly identifying if the integer was
+  // originally a char, short, etc. So we just assume it is always promotable.
+  assert(MissingFeature::isBuiltinType());
+  if (T.isa<IntType>() || T.isa<BoolType>()) {
+    return true;
+  }
+
+  // Enumerated types are promotable to their compatible integer types
+  // (C99 6.3.1.1) a.k.a. its underlying type (C++ [conv.prom]p2).
+  // TODO(cir): We have no way of knowing if a integer originated from an enum.
+  if (MissingFeature::isEnum()) {
+    llvm_unreachable("NYI");
+  }
+
+  return false;
 }
 
 } // namespace cir

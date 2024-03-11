@@ -418,12 +418,12 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
     // If we have a sign or zero extended integer, make sure to return Extend
     // so that the parameter gets the right LLVM IR attributes.
     if (Hi == NoClass && isa<IntType>(ResType)) {
-      // Treat an enum type as its underlying type.
-      if (!MissingFeature::isEnum())
-        llvm_unreachable("NYI");
-
-      if (!MissingFeature::isEnum() && !MissingFeature::promotableForABI())
-        llvm_unreachable("NYI");
+      // NOTE(cir): We skip enum types handling here since CIR represents enums
+      // directly as their unerlying integer types.
+      // NOTE(cir): For some reason, Clang does not set the coerce type here and
+      // delays it to arrangeLLVMFunctionInfo. We do the same to keep parity.
+      if (RetTy.isa<IntType>() && isPromotableIntegerTypeForABI(RetTy))
+        return ABIArgInfo::getExtend(RetTy.cast<IntType>());
     }
     break;
 
@@ -481,12 +481,12 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(Type Ty, unsigned freeIntRegs,
     // If we have a sign or zero extended integer, make sure to return Extend
     // so that the parameter gets the right LLVM IR attributes.
     if (Hi == NoClass && ResType.isa<IntType>()) {
-      // Treat an enum type as its underlying type.
-      if (!MissingFeature::isEnum())
-        llvm_unreachable("NYI");
-
-      if (!MissingFeature::isIntegralOrEnumerationType())
-        llvm_unreachable("NYI");
+      // NOTE(cir): We skip enum types handling here since CIR represents enums
+      // directly as their unerlying integer types.
+      // NOTE(cir): For some reason, Clang does not set the coerce type here and
+      // delays it to arrangeLLVMFunctionInfo. We do the same to keep parity.
+      if (Ty.isa<IntType>() && isPromotableIntegerTypeForABI(Ty))
+        return ABIArgInfo::getExtend(Ty.cast<IntType>());
     }
 
     break;

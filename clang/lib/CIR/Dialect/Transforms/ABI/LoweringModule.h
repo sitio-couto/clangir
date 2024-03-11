@@ -9,6 +9,7 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -62,6 +63,24 @@ public:
     return kind;
   }
 
+  void getTrivialDefaultFunctionAttributes(StringRef Name, bool HasOptnone,
+                                           bool AttrOnCallSite,
+                                           ArrayAttr FuncAttrs);
+
+  void getTrivialDefaultFunctionAttributes(StringRef Name, bool HasOptnone,
+                                           bool AttrOnCallSite,
+                                           ArrayAttr &FuncAttrs);
+
+  void getDefaultFunctionAttributes(StringRef Name, bool HasOptnone,
+                                    bool AttrOnCallSite, ArrayAttr FuncAttrs);
+
+  void
+  constructAttributeList(StringRef Name, const LoweringFunctionInfo &FI,
+                         FuncOp CalleeInfo, // TODO(cir): Implement CalleeInfo?
+                         FuncOp newFn,
+                         unsigned &CallingConv, bool AttrOnCallSite,
+                         bool IsThunk);
+
   void setCIRFunctionAttributes(FuncOp GD, const LoweringFunctionInfo &Info,
                                 FuncOp F, bool IsThunk);
 
@@ -71,7 +90,7 @@ public:
   FuncOp getOrCreateCIRFunction(
       StringRef MangledName, FuncType Ty, FuncOp D, bool ForVTable,
       bool DontDefer = false, bool IsThunk = false,
-      ArrayAttr ExtraAttrs = {}, // TODO(cir): __attribute__(()) stuff.
+      ArrayRef<Attribute> = {}, // TODO(cir): __attribute__(()) stuff.
       bool IsForDefinition = false);
 
   FuncOp getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
