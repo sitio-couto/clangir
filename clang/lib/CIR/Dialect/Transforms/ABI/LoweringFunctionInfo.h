@@ -137,10 +137,7 @@ public:
   bool isIndirect() const { return kind == Indirect; }
   bool isIndirectAliased() const { return kind == IndirectAliased; }
   bool isExpand() const { return kind == Expand; }
-  bool isCoerceAndExpand() const {
-    MissingFeature::isCoerceAndExpand();
-    llvm_unreachable("NYI");
-  }
+  bool isCoerceAndExpand() const { return kind == CoerceAndExpand; }
 
   bool isSignExt() const {
     assert(isExtend() && "Invalid kind!");

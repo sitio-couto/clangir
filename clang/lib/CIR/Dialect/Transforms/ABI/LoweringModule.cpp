@@ -147,13 +147,16 @@ void LoweringModule::constructAttributeList(
       llvm_unreachable("SignExt attribute is NYI");
     else
       // FIXME(cir): Add a proper abstraction to create attributes.
-      newFn.setResultAttr(0, "zeroext", rewriter.getUnitAttr());
+      newFn.setResultAttr(0, "cir.zeroext", rewriter.getUnitAttr());
     [[fallthrough]];
   case ABIArgInfo::Direct:
     if (RetAI.getInReg())
       llvm_unreachable("InReg attribute is NYI");
     assert(MissingFeature::noFPClassAttr());
     break;
+  case ABIArgInfo::Ignore:
+    break;
+
   default:
     llvm_unreachable("Missing ABIArgInfo::Kind");
   }
@@ -211,7 +214,7 @@ void LoweringModule::constructAttributeList(
       else
         // FIXME(cir): Add a proper abstraction to create attributes.
         Attrs.push_back(
-            rewriter.getNamedAttr("zeroext", rewriter.getUnitAttr()));
+            rewriter.getNamedAttr("cir.zeroext", rewriter.getUnitAttr()));
       [[fallthrough]];
     case ABIArgInfo::Direct:
       if (ArgNo == 0 && !MissingFeature::chainCall())

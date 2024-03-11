@@ -23,17 +23,17 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return
   }
 
-  // TODO(cir): Support unsigned integers (zero-extend when necessary).
+  // TODO(cir): Missing noundef attributes in some of the following tests.
 
-  // // CHECK: cir.func @UChar(%arg0: !u8i) -> !u8i
-  // cir.func @UChar(%arg0: !u8i) -> !u8i {
-  //   cir.return %arg0 : !u8i
-  // }
+  // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
+  cir.func @UChar(%arg0: !u8i) -> !u8i {
+    cir.return %arg0 : !u8i
+  }
 
-  // // CHECK: cir.func @UShort(%arg0: !u16i) -> !u16i
-  // cir.func @UShort(%arg0: !u16i) -> !u16i {
-  //   cir.return %arg0 : !u16i
-  // }
+  // CHECK: cir.func @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
+  cir.func @UShort(%arg0: !u16i) -> !u16i {
+    cir.return %arg0 : !u16i
+  }
 
   // // CHECK: cir.func @UInt(%arg0: !s32i) -> !s32i
   // cir.func @UInt(%arg0: !s32i) -> !s32i {
