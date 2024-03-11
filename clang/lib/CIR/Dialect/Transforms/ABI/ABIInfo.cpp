@@ -2,6 +2,7 @@
 #include "ABIInfoImpl.h"
 #include "CIRContext.h"
 #include "LoweringTypes.h"
+#include "MissingFeature.h"
 #include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
@@ -24,7 +25,9 @@ bool ABIInfo::isPromotableIntegerTypeForABI(Type Ty) const {
   if (getContext().isPromotableIntegerType(Ty))
     return true;
 
-  llvm_unreachable("unhandled integer type");
+  assert(MissingFeature::fixedWidthIntegers());
+
+  return false;
 }
 
 } // namespace cir

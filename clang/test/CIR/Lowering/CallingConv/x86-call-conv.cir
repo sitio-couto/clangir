@@ -35,20 +35,20 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u16i
   }
 
-  // // CHECK: cir.func @UInt(%arg0: !s32i) -> !s32i
-  // cir.func @UInt(%arg0: !s32i) -> !s32i {
-  //   cir.return %arg0 : !s32i
-  // }
+  // CHECK: cir.func @UInt(%arg0: !s32i) -> !s32i
+  cir.func @UInt(%arg0: !s32i) -> !s32i {
+    cir.return %arg0 : !s32i
+  }
 
-  // // CHECK: cir.func @ULong(%arg0: !u64i) -> !u64i
-  // cir.func @ULong(%arg0: !u64i) -> !u64i {
-  //   cir.return %arg0 : !u64i
-  // }
+  // CHECK: cir.func @ULong(%arg0: !u64i) -> !u64i
+  cir.func @ULong(%arg0: !u64i) -> !u64i {
+    cir.return %arg0 : !u64i
+  }
 
-  // // CHECK: cir.func @ULongLong(%arg0: !u64i) -> !u64i
-  // cir.func @ULongLong(%arg0: !u64i) -> !u64i {
-  //   cir.return %arg0 : !u64i
-  // }
+  // CHECK: cir.func @ULongLong(%arg0: !u64i) -> !u64i
+  cir.func @ULongLong(%arg0: !u64i) -> !u64i {
+    cir.return %arg0 : !u64i
+  }
 
   // TODO(cir): Support signed integers (sign-extend when necessary).
 

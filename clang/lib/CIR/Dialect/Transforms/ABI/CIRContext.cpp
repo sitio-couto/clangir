@@ -150,10 +150,16 @@ bool CIRContext::isPromotableIntegerType(Type T) const {
     llvm_unreachable("NYI");
 
   // FIXME(cir): We have no way of properly identifying if the integer was
-  // originally a char, short, etc. So we just assume it is always promotable.
+  // originally a char, short, etc. So we just assume it is promotable if
+  // smaller than 32 bits. This is wrong since, for example, Char32 is
+  // promotable.
   assert(MissingFeature::isBuiltinType());
-  if (T.isa<IntType>() || T.isa<BoolType>()) {
+  if (T.isa<BoolType>() ||
+      (T.isa<IntType>() && T.cast<IntType>().getWidth() < 32)) {
     return true;
+  }
+  if (T.isa<IntType>() && T.cast<IntType>().getWidth() >= 32) {
+    return false;
   }
 
   // Enumerated types are promotable to their compatible integer types
