@@ -258,9 +258,13 @@ Type X86_64ABIInfo::GetINTEGERTypeAtOffset(Type DestTy, unsigned IROffset,
   // isn't larger than the structure.
   // FIXME(cir): Perhaps we should have the concept of singless integers in CIR,
   // mostly because coerced types should not be sign/zero extended. On the other
-  // hand, this might not make a difference in practice.
+  // hand, this might not make a difference in practice. For now, we just
+  // preserve the sign as is to avoid unecessary bitcasts.
+  bool isSigned = false;
+  if (auto intTy = SourceTy.dyn_cast<IntType>())
+    isSigned = intTy.isSigned();
   return IntType::get(LT.getMLIRContext(),
-                      std::min(TySizeInBytes - SourceOffset, 8U) * 8, false);
+                      std::min(TySizeInBytes - SourceOffset, 8U) * 8, isSigned);
 }
 
 void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,

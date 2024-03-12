@@ -47,16 +47,6 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u64i
   }
 
-  // CHECK: cir.func @ULongLong(%arg0: !u64i) -> !u64i
-  cir.func @ULongLong(%arg0: !u64i) -> !u64i {
-    cir.return %arg0 : !u64i
-  }
-
-  // CHECK: cir.func @Char(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
-  cir.func @Char(%arg0: !s8i) -> !s8i {
-    cir.return %arg0 : !s8i
-  }
-
   // CHECK: cir.func @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
   cir.func @SChar(%arg0: !s8i) -> !s8i {
     cir.return %arg0 : !s8i
@@ -72,15 +62,10 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !s32i
   }
 
-  // // CHECK: cir.func @SLong(%arg0: !s64i) -> !s64i
-  // cir.func @SLong(%arg0: !s64i) -> !s64i {
-  //   cir.return %arg0 : !s64i
-  // }
-
-  // // CHECK: cir.func @SLongLong(%arg0: !s64i) -> !s64i
-  // cir.func @SLongLong(%arg0: !s64i) -> !s64i {
-  //   cir.return %arg0 : !s64i
-  // }
+  // CHECK: cir.func @SLong(%arg0: !s64i) -> !s64i
+  cir.func @SLong(%arg0: !s64i) -> !s64i {
+    cir.return %arg0 : !s64i
+  }
 
   // TODO(cir): Floating point types.
 
