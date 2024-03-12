@@ -665,8 +665,17 @@ Align CIRDataLayout::getAlignment(Type Ty, bool abi_or_pref) const {
     // FIXME(cir): This does not account for differnt address spaces, and relies
     // on CIR's data layout to give the proper alignment.
     assert(MissingFeature::addresSpace());
-    uint align = abi_or_pref ? DL.getTypeABIAlignment(PtrTy) : DL.getTypePreferredAlignment(PtrTy);
+    uint align = abi_or_pref ? DL.getTypeABIAlignment(PtrTy)
+                             : DL.getTypePreferredAlignment(PtrTy);
     return llvm::Align(align);
+  }
+  if (auto floatTy = Ty.dyn_cast<FloatType>()) {
+    // FIXME(cir): We should be able to use MLIR's datalayout interface to
+    // easily query this.
+    unsigned BitWidth = floatTy.getWidth();
+    auto *I = findAlignmentLowerBound(FloatAlignments, BitWidth);
+    if (I != FloatAlignments.end() && I->TypeBitWidth == BitWidth)
+      return abi_or_pref ? I->ABIAlign : I->PrefAlign;
   }
   llvm::errs() << "Type: " << Ty << "\n";
   llvm_unreachable("CIRDataLayout::getAlignment(): Unsupported type");
@@ -688,6 +697,9 @@ inline llvm::TypeSize CIRDataLayout::getTypeSizeInBits(Type Ty) const {
     // on CIR's data layout to give the proper ABI-specific type width.
     assert(MissingFeature::addresSpace());
     return llvm::TypeSize::getFixed(DL.getTypeSizeInBits(PtrTy));
+  }
+  if (auto floatTy = Ty.dyn_cast<FloatType>()) {
+    return llvm::TypeSize::getFixed(floatTy.getWidth());
   }
   llvm::errs() << "Type: " << Ty << "\n";
   llvm_unreachable("CIRDataLayout::getTypeSizeInBits(): Unsupported type");

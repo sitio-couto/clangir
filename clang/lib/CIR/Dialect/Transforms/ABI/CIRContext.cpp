@@ -1,11 +1,14 @@
 #include "CIRContext.h"
 #include "CIRRecordLayout.h"
 #include "MissingFeature.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
+#include "clang/AST/Type.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <cmath>
 
 namespace mlir {
 namespace cir {
@@ -33,9 +36,10 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
   unsigned Align = 8;
   AlignRequirementKind AlignRequirement = AlignRequirementKind::None;
 
-  // TODO(cir): We should implement a better way to identify type kinds.
+  // TODO(cir): We should implement a better way to identify type kinds and use
+  // builting data layout interface for this.
   auto typeKind = clang::Type::Builtin;
-  if (T.isa<IntType>()) {
+  if (T.isa<IntType, Float32Type, Float64Type>()) {
     typeKind = clang::Type::Builtin;
   } else if (T.isa<StructType>()) {
     typeKind = clang::Type::Record;
@@ -59,11 +63,20 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
       Width = intTy.getWidth();
       // FIXME(cir): We get the aligment in bits. But this is probably wrong for
       // stuff like short types.
-      Align = intTy.getWidth();
+      Align = std::ceil(intTy.getWidth() / 8) * 8;
       break;
-    } else {
-      llvm_unreachable("Unknown builtin type!");
     }
+    if (auto floatTy = T.dyn_cast<Float32Type>()) {
+      Width = Target->getFloatWidth();
+      Align = Target->getFloatAlign();
+      break;
+    }
+    if (auto doubleTy = T.dyn_cast<Float64Type>()) {
+      Width = Target->getDoubleWidth();
+      Align = Target->getDoubleAlign();
+      break;
+    }
+    llvm_unreachable("Unknown builtin type!");
     break;
   }
   case clang::Type::Record: {
