@@ -1,13 +1,14 @@
 // RUN: cir-opt %s --call-conv-lowering -o %t.cir
 // RUN: FileCheck %s --input-file %t.cir
 
+!s8i = !cir.int<s, 8>
 !s16i = !cir.int<s, 16>
 !s32i = !cir.int<s, 32>
 !s64i = !cir.int<s, 64>
-!s8i = !cir.int<s, 8>
-!u16i = !cir.int<u, 16>
-!u64i = !cir.int<u, 64>
 !u8i = !cir.int<u, 8>
+!u16i = !cir.int<u, 16>
+!u32i = !cir.int<u, 32>
+!u64i = !cir.int<u, 64>
 
 !ty_22CoerceToI6422 = !cir.struct<struct "CoerceToI64" {!cir.int<s, 32>, !cir.int<s, 32>}>
 
@@ -24,6 +25,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   }
 
   // TODO(cir): Missing noundef attributes in some of the following tests.
+  // TODO(cir): Signedness of the integer types is not being preserved.
 
   // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
   cir.func @UChar(%arg0: !u8i) -> !u8i {
@@ -35,9 +37,9 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u16i
   }
 
-  // CHECK: cir.func @UInt(%arg0: !s32i) -> !s32i
-  cir.func @UInt(%arg0: !s32i) -> !s32i {
-    cir.return %arg0 : !s32i
+  // CHECK: cir.func @UInt(%arg0: !u32i) -> !u32i
+  cir.func @UInt(%arg0: !u32i) -> !u32i {
+    cir.return %arg0 : !u32i
   }
 
   // CHECK: cir.func @ULong(%arg0: !u64i) -> !u64i
@@ -50,22 +52,25 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u64i
   }
 
-  // TODO(cir): Support signed integers (sign-extend when necessary).
+  // CHECK: cir.func @Char(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
+  cir.func @Char(%arg0: !s8i) -> !s8i {
+    cir.return %arg0 : !s8i
+  }
 
-  // // CHECK: cir.func @Char(%arg0: !s8i) -> !s8i
-  // cir.func @Char(%arg0: !s8i) -> !s8i {
-  //   cir.return %arg0 : !s8i
-  // }
+  // CHECK: cir.func @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
+  cir.func @SChar(%arg0: !s8i) -> !s8i {
+    cir.return %arg0 : !s8i
+  }
 
-  // // CHECK: cir.func @SChar(%arg0: !s8i) -> !s8i
-  // cir.func @SChar(%arg0: !s8i) -> !s8i {
-  //   cir.return %arg0 : !s8i
-  // }
+  // CHECK: cir.func @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
+  cir.func @SShort(%arg0: !s16i) -> !s16i {
+    cir.return %arg0 : !s16i
+  }
 
-  // // CHECK: cir.func @SShort(%arg0: !s16i) -> !s16i
-  // cir.func @SShort(%arg0: !s16i) -> !s16i {
-  //   cir.return %arg0 : !s16i
-  // }
+  // CHECK: cir.func @SInt(%arg0: !s32i) -> !s32i
+  cir.func @SInt(%arg0: !s32i) -> !s32i {
+    cir.return %arg0 : !s32i
+  }
 
   // // CHECK: cir.func @SLong(%arg0: !s64i) -> !s64i
   // cir.func @SLong(%arg0: !s64i) -> !s64i {

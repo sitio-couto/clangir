@@ -144,7 +144,7 @@ void LoweringModule::constructAttributeList(
   switch (RetAI.getKind()) {
   case ABIArgInfo::Extend:
     if (RetAI.isSignExt())
-      llvm_unreachable("SignExt attribute is NYI");
+      newFn.setResultAttr(0, "cir.signext", rewriter.getUnitAttr());
     else
       // FIXME(cir): Add a proper abstraction to create attributes.
       newFn.setResultAttr(0, "cir.zeroext", rewriter.getUnitAttr());
@@ -210,7 +210,8 @@ void LoweringModule::constructAttributeList(
     switch (AI.getKind()) {
     case ABIArgInfo::Extend:
       if (RetAI.isSignExt())
-        llvm_unreachable("SignExt attribute is NYI");
+        Attrs.push_back(
+            rewriter.getNamedAttr("cir.signext", rewriter.getUnitAttr()));
       else
         // FIXME(cir): Add a proper abstraction to create attributes.
         Attrs.push_back(

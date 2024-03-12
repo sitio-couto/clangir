@@ -72,8 +72,19 @@ public:
   // enumerations, but in CIR, these two types are one and the same.
   static ABIArgInfo getExtend(IntType Ty, Type T = nullptr) {
     if (Ty.isSigned())
-      llvm_unreachable("NYI");
+      return getSignExtend(Ty, T);
     return getZeroExtend(Ty, T);
+  }
+
+  static ABIArgInfo getSignExtend(IntType Ty, Type T = nullptr) {
+    // NOTE(cir): Enumerations are IntTypes in CIR.
+    auto AI = ABIArgInfo(Extend);
+    AI.setCoerceToType(T);
+    AI.setPaddingType(nullptr);
+    AI.setDirectOffset(0);
+    AI.setDirectAlign(0);
+    AI.setSignExt(true);
+    return AI;
   }
 
   static ABIArgInfo getZeroExtend(IntType Ty, Type T = nullptr) {
