@@ -701,6 +701,7 @@ inline llvm::TypeSize CIRDataLayout::getTypeSizeInBits(Type Ty) const {
   if (auto floatTy = Ty.dyn_cast<FloatType>()) {
     return llvm::TypeSize::getFixed(floatTy.getWidth());
   }
+  
   llvm::errs() << "Type: " << Ty << "\n";
   llvm_unreachable("CIRDataLayout::getTypeSizeInBits(): Unsupported type");
 }

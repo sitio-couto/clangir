@@ -329,8 +329,8 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   // type. CIR does not have this information yet. To prevent errors, the
   // assertion below was added.
   assert(MissingFeature::isBuiltinType());
-  if (!Ty.isa<IntType>() && !Ty.isa<StructType>() && !Ty.isa<VoidType>() &&
-      !Ty.isa<Float32Type>() && !Ty.isa<Float64Type>()) {
+  if (!Ty.isa<IntType>() && !Ty.isa<BoolType>() && !Ty.isa<StructType>() &&
+      !Ty.isa<VoidType>() && !Ty.isa<Float32Type>() && !Ty.isa<Float64Type>()) {
     llvm::outs() << "Missing X86 classification for type " << Ty << "\n";
     llvm_unreachable("NYI");
   }
@@ -339,12 +339,12 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
     Current = NoClass;
   }
 
-  if (llvm::isa<IntType>(Ty)) {
+  if (Ty.isa<IntType, BoolType>()) { // k >= Bool && k <= LongLong
     // FIXME(cir): Clang's BuildingType::Kind allow comparisons (GT, LT, etc).
     // We should implement this in CIR to simplify the conditions below. BTW,
     // I'm not sure if the comparisons below are truly equivalent to the ones
     // in Clang.
-    if (Ty.isa<IntType>()) { // k >= Bool && k <= LongLong
+    if (Ty.isa<IntType, BoolType>()) {
       Current = Integer;
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
@@ -472,13 +472,13 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
 
     // If we have a sign or zero extended integer, make sure to return Extend
     // so that the parameter gets the right LLVM IR attributes.
-    if (Hi == NoClass && isa<IntType>(ResType)) {
+    if (Hi == NoClass && ResType.isa<IntType, BoolType>()) {
       // NOTE(cir): We skip enum types handling here since CIR represents
       // enums directly as their unerlying integer types. NOTE(cir): For some
       // reason, Clang does not set the coerce type here and delays it to
       // arrangeLLVMFunctionInfo. We do the same to keep parity.
-      if (RetTy.isa<IntType>() && isPromotableIntegerTypeForABI(RetTy))
-        return ABIArgInfo::getExtend(RetTy.cast<IntType>());
+      if (RetTy.isa<IntType, BoolType>() && isPromotableIntegerTypeForABI(RetTy))
+        return ABIArgInfo::getExtend(RetTy);
     }
     break;
 
@@ -489,6 +489,7 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
     break;
 
   default:
+    llvm::outs() << "Missing X86 return type " << Lo << " class handler\n";
     llvm_unreachable("NYI");
   }
 

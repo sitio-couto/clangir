@@ -70,9 +70,9 @@ public:
   //
   // NOTE(cir): The original can apply this method on both integers and
   // enumerations, but in CIR, these two types are one and the same.
-  static ABIArgInfo getExtend(IntType Ty, Type T = nullptr) {
-    if (Ty.isSigned())
-      return getSignExtend(Ty, T);
+  static ABIArgInfo getExtend(Type Ty, Type T = nullptr) {
+    if (Ty.isa<IntType>() && Ty.cast<IntType>().isSigned())
+      return getSignExtend(Ty.cast<IntType>(), T);
     return getZeroExtend(Ty, T);
   }
 
@@ -87,8 +87,9 @@ public:
     return AI;
   }
 
-  static ABIArgInfo getZeroExtend(IntType Ty, Type T = nullptr) {
+  static ABIArgInfo getZeroExtend(Type Ty, Type T = nullptr) {
     // NOTE(cir): Enumerations are IntTypes in CIR.
+    assert(Ty.isa<IntType>() || Ty.isa<BoolType>());
     auto AI = ABIArgInfo(Extend);
     AI.setCoerceToType(T);
     AI.setPaddingType(nullptr);

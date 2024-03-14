@@ -39,7 +39,7 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
   // TODO(cir): We should implement a better way to identify type kinds and use
   // builting data layout interface for this.
   auto typeKind = clang::Type::Builtin;
-  if (T.isa<IntType, Float32Type, Float64Type>()) {
+  if (T.isa<IntType, Float32Type, Float64Type, BoolType>()) {
     typeKind = clang::Type::Builtin;
   } else if (T.isa<StructType>()) {
     typeKind = clang::Type::Record;
@@ -57,6 +57,11 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
   // current level of CIR.
   switch (typeKind) {
   case clang::Type::Builtin: {
+    if (auto boolTy = T.dyn_cast<BoolType>()) {
+      Width = Target->getBoolWidth();
+      Align = Target->getBoolAlign();
+      break;
+    }
     if (auto intTy = T.dyn_cast<IntType>()) {
       // NOTE(cir): This assumes int types are already ABI-specific.
       // FIXEME(cir): Use data layout interface here instead.

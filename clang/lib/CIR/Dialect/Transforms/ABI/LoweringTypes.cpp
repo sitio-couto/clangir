@@ -106,7 +106,7 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   assert(MissingFeature::extParamInfo());
   unsigned CC = clangCallConvToLLVMCallConv(clang::CallingConv::CC_C);
 
-  // Construct the function info.  We co-allocate the ArgInfos.
+  // Construct the function info. We co-allocate the ArgInfos.
   FI = LoweringFunctionInfo::create(
       CC, /*isInstanceMethod=*/false, /*isChainCall=*/false,
       /*isDelegateCall=*/false, resultType, argTypes, required);

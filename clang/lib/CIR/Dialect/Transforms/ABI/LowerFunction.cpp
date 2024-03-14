@@ -174,8 +174,12 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
 
       // Prepare the argument value. If we have the trivial case, handle it
       // with no muss and fuss.
+
+      // NOTE(cir): In the original codegen, the ArgInfo coerced type is
+      // compared to the AST converted type. I'm not sure if this is necessary
+      // in CIR.
       if (!isa<StructType>(ArgI.getCoerceToType()) &&
-          ArgI.getCoerceToType() == Ty && ArgI.getDirectOffset() == 0) {
+          ArgI.getDirectOffset() == 0) {
         assert(NumIRArgs == 1);
 
         // LLVM expects swifterror parameters to be used in very restricted
