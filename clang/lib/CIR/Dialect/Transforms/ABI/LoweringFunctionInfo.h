@@ -226,8 +226,8 @@ public:
 // Implementation detail of CGFunctionInfo, factored out so it can be named
 // in the TrailingObjects base class of CGFunctionInfo.
 struct LoweringFunctionInfoArgInfo {
-  mlir::Type type;
-  ABIArgInfo info;
+  mlir::Type type; // Original ABI-agnostic type.
+  ABIArgInfo info; // ABI-specific information.
 };
 
 class LoweringFunctionInfo final

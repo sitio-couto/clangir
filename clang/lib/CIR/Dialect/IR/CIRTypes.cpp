@@ -634,6 +634,9 @@ IntType::getPreferredAlignment(const ::mlir::DataLayout &dataLayout,
 mlir::LogicalResult
 IntType::verify(llvm::function_ref<mlir::InFlightDiagnostic()> emitError,
                 unsigned width, bool isSigned) {
+  // Allows for 1-bit integers (useful for ABI-specific booleans).
+  if (width == 1 && !isSigned)
+    return mlir::success();
 
   if (width < IntType::minBitwidth() || width > IntType::maxBitwidth()) {
     emitError() << "IntType only supports widths from "

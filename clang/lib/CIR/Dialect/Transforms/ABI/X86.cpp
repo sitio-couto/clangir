@@ -477,7 +477,8 @@ ABIArgInfo X86_64ABIInfo::classifyReturnType(Type RetTy) const {
       // enums directly as their unerlying integer types. NOTE(cir): For some
       // reason, Clang does not set the coerce type here and delays it to
       // arrangeLLVMFunctionInfo. We do the same to keep parity.
-      if (RetTy.isa<IntType, BoolType>() && isPromotableIntegerTypeForABI(RetTy))
+      if (RetTy.isa<IntType, BoolType>() &&
+          isPromotableIntegerTypeForABI(RetTy))
         return ABIArgInfo::getExtend(RetTy);
     }
     break;
@@ -547,8 +548,8 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(Type Ty, unsigned freeIntRegs,
       // enums directly as their unerlying integer types. NOTE(cir): For some
       // reason, Clang does not set the coerce type here and delays it to
       // arrangeLLVMFunctionInfo. We do the same to keep parity.
-      if (Ty.isa<IntType>() && isPromotableIntegerTypeForABI(Ty))
-        return ABIArgInfo::getExtend(Ty.cast<IntType>());
+      if (Ty.isa<IntType, BoolType>() && isPromotableIntegerTypeForABI(Ty))
+        return ABIArgInfo::getExtend(Ty);
     }
 
     break;

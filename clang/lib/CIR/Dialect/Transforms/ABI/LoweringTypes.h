@@ -72,6 +72,9 @@ public:
 
   /// Return the ABI-specific function type for a CIR function type.
   FuncType getFunctionType(const LoweringFunctionInfo &FI);
+
+  /// Convert a CIR type to its ABI-specific default form.
+  Type convertType(Type T);
 };
 
 } // namespace cir

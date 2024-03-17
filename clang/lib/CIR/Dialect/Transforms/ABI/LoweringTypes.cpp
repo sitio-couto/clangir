@@ -1,6 +1,9 @@
 #include "LoweringTypes.h"
 #include "LoweringModule.h"
 #include "clang/Basic/Specifiers.h"
+#include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
 using namespace cir;
@@ -22,6 +25,11 @@ static void appendParameterTypes(SmallVectorImpl<Type> &prefix, FuncType FPT) {
 
 /// Arrange the LLVM function layout for a value of the given function
 /// type, on top of any implicit parameters already stored.
+///
+/// \param CGT - Abstraction for lowering CIR types.
+/// \param instanceMethod - Whether the function is an instance method.
+/// \param prefix - List of implicit parameters to be prepended (e.g. 'this').
+/// \param FTP - ABI-agnostic function type.
 static const LoweringFunctionInfo &
 arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
                         SmallVectorImpl<mlir::Type> &prefix, FuncType FTP) {
@@ -91,9 +99,37 @@ const LoweringFunctionInfo &LoweringTypes::arrangeGlobalDeclaration(FuncOp GD) {
   return arrangeFunctionDeclaration(GD);
 }
 
+/// Convert a CIR type to its ABI-specific default form.
+///
+/// NOTE(cir): It the original codegen this method is used to get the default
+/// LLVM IR representation for a given AST type. When a the ABI-specific
+/// function info sets a nullptr for a return or argument type, the default type
+/// given by this method is used. I think we can move this logic into the
+/// LoweringFunctionInfo class, but for the sake of parity, I'm keeping it here
+/// for now.
+Type LoweringTypes::convertType(Type T) {
+  // Certain CIR types are already ABI-specific, so we just return them.
+  if (T.isa<IntType, FloatType>()) {
+    return T;
+  }
+
+  // Default bool type to `!cir.int<u, 1>`.
+  if (T.isa<BoolType>()) {
+    return IntType::get(getMLIRContext(), /*width=*/1, /*isSigned=*/false);
+  }
+
+  llvm::outs() << "Missing default ABI-specific type for " << T << "\n";
+  llvm_unreachable("NYI");
+}
+
 /// Arrange the argument and result information for an abstract value
 /// of a given function type.  This is the method which all of the
 /// above functions ultimately defer to.
+///
+/// \param resultType - ABI-agnostic CIR result type.
+/// \param opts - Options to control the arrangement.
+/// \param argTypes - ABI-agnostic CIR argument types.
+/// \param required - Information about required/optional arguments.
 const LoweringFunctionInfo &
 LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
                                        ArrayRef<Type> argTypes,
@@ -107,6 +143,7 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   unsigned CC = clangCallConvToLLVMCallConv(clang::CallingConv::CC_C);
 
   // Construct the function info. We co-allocate the ArgInfos.
+  // NOTE(cir): The initial function info might hold incorrect data.
   FI = LoweringFunctionInfo::create(
       CC, /*isInstanceMethod=*/false, /*isChainCall=*/false,
       /*isDelegateCall=*/false, resultType, argTypes, required);
@@ -119,7 +156,8 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   } else if (!MissingFeature::extParamInfo()) {
     llvm_unreachable("NYI");
   } else {
-    getABIInfo().computeInfo(*FI);
+    // NOTE(cir): Properly compute function info patching any incorrect data.
+    getABIInfo().computeInfo(*FI); // FIXME(cir): Args should be set to null.
   }
 
   // Loop over all of the computed argument and return value info. If any of
@@ -127,11 +165,11 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   // default now.
   ABIArgInfo &retInfo = FI->getReturnInfo();
   if (retInfo.canHaveCoerceToType() && retInfo.getCoerceToType() == nullptr)
-    retInfo.setCoerceToType(FI->getReturnType());
+    retInfo.setCoerceToType(convertType(FI->getReturnType()));
 
   for (auto &I : FI->arguments())
     if (I.info.canHaveCoerceToType() && I.info.getCoerceToType() == nullptr)
-      I.info.setCoerceToType(I.type);
+      I.info.setCoerceToType(convertType(I.type));
 
   assert(MissingFeature::recursiveFunctionProcessing());
 

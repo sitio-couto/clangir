@@ -79,14 +79,13 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : f64
   }
 
-  // // CHECK: cir.func @Bool(%arg0: !cir.bool) -> !cir.bool
-  // cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
-  //   cir.return %arg0 : !cir.bool
-  // }
+  // CHECK: cir.func @Bool(%arg0: !i1u {cir.zeroext}) -> !cir.int<u, 1> {cir.zeroext}
+  cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
+    cir.return %arg0 : !cir.bool
+  }
 
   // TODO(cir): Support pointer types.
 
-  // // CHECK: cir.func @Ptr(%arg0: !cir.ptr<!s32i>) -> !cir.ptr<!s32i>
   // cir.func @Ptr(%arg0: !cir.ptr<!s32i>) -> !cir.ptr<!s32i> {
   //   cir.return %arg0 : !cir.ptr<!s32i>
   // }
