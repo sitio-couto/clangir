@@ -51,9 +51,8 @@ static Value enterStructPointerForCoercedAccess(Value SrcPtr, StructType SrcSTy,
   llvm_unreachable("NYI");
 }
 
-/// CreateCoercedStore - Create a store to \arg DstPtr from \arg Src,
-/// where the source and destination may have different types.  The
-/// destination is known to be aligned to \arg DstAlign bytes.
+/// CreateCoercedStore - Create a store to \arg Dst from \arg Src,
+/// where the source and destination may have different types.
 ///
 /// This safely handles the case when the src type is larger than the
 /// destination type; the upper bits of the src will be lost.
@@ -63,6 +62,14 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
   Type DstTy = Dst.getType();
   if (SrcTy == DstTy) {
     llvm_unreachable("NYI");
+  }
+
+  // NOTE(cir): In CIR, booleans are not a trivial coercion. Because of this
+  // they are handled here.
+  if (SrcTy.isa<IntType>() && DstTy.isa<PointerType>() &&
+      DstTy.cast<PointerType>().getPointee().isa<BoolType>()) {
+    CGF.buildBooleanStore(Src, Dst);
+    return;
   }
 
   // FIXME(cir): We need a better way to handle datalayout queries.
@@ -174,12 +181,8 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
 
       // Prepare the argument value. If we have the trivial case, handle it
       // with no muss and fuss.
-
-      // NOTE(cir): In the original codegen, the ArgInfo coerced type is
-      // compared to the AST converted type. I'm not sure if this is necessary
-      // in CIR.
       if (!isa<StructType>(ArgI.getCoerceToType()) &&
-          ArgI.getDirectOffset() == 0) {
+          ArgI.getCoerceToType() == Ty && ArgI.getDirectOffset() == 0) {
         assert(NumIRArgs == 1);
 
         // LLVM expects swifterror parameters to be used in very restricted
@@ -275,6 +278,30 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
   }
 }
 
+void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
+  // NOTE(cir): no-return, naked, and no result functions should be handled in
+  // CIRGen.
+
+  Value RV = {};
+  const ABIArgInfo &RetAI = FI.getReturnInfo();
+
+  // switch (RetAI.getKind()) {
+  // default:
+  //   llvm_unreachable("Unhandled ABIArgInfo::Kind");
+  // }
+
+  // if (RV) {
+  //   llvm_unreachable("NYI");
+  // } else {
+  //   llvm_unreachable("NYI");
+  // }
+}
+
+void LowerFunction::finishFunction(const LoweringFunctionInfo &FI) {
+  // Emit the standard function epilogue.
+  emitFunctionEpilog(FI);
+}
+
 void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
                                  const LoweringFunctionInfo &FnInfo) {
   auto Args = GD.getArguments();
@@ -317,9 +344,8 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
 
   // TODO(cir): We should handle return values here as well.
 
-  // FIXME(cir): We probably need to emit the function epilogue here as well.
-  // The return type is ABI-related, so it should be properly updated by this
-  // pass.
+  // Emit the standard function epilogue.
+  finishFunction(FnInfo);
 }
 
 // Parity with CodeGenFunction::StartFunction. Note that the Fn variable is not
@@ -365,6 +391,17 @@ void LowerFunction::buildAggregateStore(Value Val, Value Dest,
   }
 
   rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
+}
+
+void LowerFunction::buildBooleanStore(Value Val, Value Dest) {
+  assert(Val.getType().isa<IntType>() && "Not an integer type");
+  assert(Dest.getType().isa<PointerType>() && "Storing in a non-pointer!");
+
+  const auto loc = Val.getLoc();
+  Type pointeeTy = Dest.getType().cast<PointerType>().getPointee();
+
+  Val = rewriter.create<CastOp>(loc, pointeeTy, CastKind::bitcast, Val);
+  rewriter.create<StoreOp>(loc, Val, Dest);
 }
 
 /// Emit an alloca (or GlobalValue depending on target)
