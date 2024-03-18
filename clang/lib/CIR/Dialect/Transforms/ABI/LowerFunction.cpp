@@ -283,18 +283,48 @@ void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
   // CIRGen.
 
   Value RV = {};
+  Type RetTy = FI.getReturnType();
   const ABIArgInfo &RetAI = FI.getReturnInfo();
 
-  // switch (RetAI.getKind()) {
-  // default:
-  //   llvm_unreachable("Unhandled ABIArgInfo::Kind");
-  // }
+  switch (RetAI.getKind()) {
+  case ABIArgInfo::Extend:
+  case ABIArgInfo::Direct:
+    // FIXME(cir): Should we call ConvertType(RetTy) here?
+    if (RetAI.getCoerceToType() == RetTy && RetAI.getDirectOffset() == 0) {
+      // The internal return value temp always will have pointer-to-return-type
+      // type, just do a load.
 
-  // if (RV) {
-  //   llvm_unreachable("NYI");
-  // } else {
-  //   llvm_unreachable("NYI");
-  // }
+      // If there is a dominating store to ReturnValue, we can elide
+      // the load, zap the store, and usually zap the alloca.
+      // NOTE(cir): This seems like a premature optimization case, so I'm
+      // skipping it.
+      if (/*findDominatingStoreToReturnValue(*this)=*/false) {
+        llvm_unreachable("NYI");
+      }
+      // Otherwise, we have to do a simple load.
+      else {
+        // NOTE(cir): Nothing to do here. The codegen already emitted this load
+        // for us and there is no casting necessary to conform to the ABI. The
+        // zero-extension is enforced by the return value's attribute. Just
+        // early exit.
+        return;
+      }
+    } else {
+      llvm_unreachable("NYI");
+    }
+
+    // TODO(cir): Should AutoreleaseResult be handled here?
+
+    break;
+  default:
+    llvm_unreachable("Unhandled ABIArgInfo::Kind");
+  }
+
+  if (RV) {
+    llvm_unreachable("NYI");
+  } else {
+    llvm_unreachable("NYI");
+  }
 }
 
 void LowerFunction::finishFunction(const LoweringFunctionInfo &FI) {
@@ -325,7 +355,8 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
   // arguments of the original function were RAUW'd with the new ones.
   // FIXME(cir): The implementation below is pretty trashy: will not work if
   // SrcFn has multiple blocks; mixes the new and old prologues.
-  // FIXME(cir): Perhaps we can leverage MLIR's SignatureConversion to do this.
+  // FIXME(cir): Perhaps we can leverage MLIR's SignatureConversion to do
+  // this.
   assert(std::all_of(Args.begin(), Args.end(),
                      [](auto arg) { return arg.getUses().empty(); }) &&
          "Missing RAUW?");
@@ -335,8 +366,8 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
                        Fn.getArguments());
 
   // FIXME(cir): What about saving parameters for corotines? Should we do
-  // something about it in this pass? If the change with the calling convention,
-  // we might have to handle this here.
+  // something about it in this pass? If the change with the calling
+  // convention, we might have to handle this here.
 
   // NOTE(cir): In the original codegen, this is where the function's body is
   // generated. Since we already did this, and this pass lower's only calling
@@ -348,16 +379,16 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
   finishFunction(FnInfo);
 }
 
-// Parity with CodeGenFunction::StartFunction. Note that the Fn variable is not
-// a FuncOp, but a FuncType. In the original function, Fn is the result LLVM IR
-// function, but here we are going to .
+// Parity with CodeGenFunction::StartFunction. Note that the Fn variable is
+// not a FuncOp, but a FuncType. In the original function, Fn is the result
+// LLVM IR function, but here we are going to .
 void LowerFunction::startFunction(FuncOp GD, Type RetTy, FuncOp Fn,
                                   llvm::MutableArrayRef<BlockArgument> &Args,
                                   const LoweringFunctionInfo &FnInfo) {
   // NOTE(cir): In the original Clang codegen, a lot of stuff is done here.
   // However, in CIR, we split this function between codegen and ABI lowering.
-  // This means that the following sections are not necessary here as they will
-  // be handled in CIR's codegen:
+  // This means that the following sections are not necessary here as they
+  // will be handled in CIR's codegen:
   // - Handling of sanitizers.
   // - Profiling.
   // - Addition/removal of function attributes.
