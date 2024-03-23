@@ -122,6 +122,11 @@ Value emitAddressAtOffset(LowerFunction &LF, Value addr,
 /// differ, we have to do a coerced load. A coerced load, which means to load a
 /// type to another despite that they represent the same value. The simplest
 /// cases can be solved with a mere bitcast.
+///
+/// This partially replaces CreateCoercedLoad from the original codegen.
+/// However, instead of emitting the load, it emits a cast.
+///
+/// FIXME(cir): Improve parity with the original codegen.
 Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
   Type SrcTy = Src.getType();
 
@@ -133,6 +138,30 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
   if (SrcTy.isa<BoolType>() && Ty.isa<IntType>()) {
     return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
                                            Src);
+  }
+
+  llvm::TypeSize DstSize = LF.LM.getDataLayout().getTypeAllocSize(Ty);
+
+  // FIXME(cir): Do we need the EnterStructPointerForCoercedAccess routine here?
+
+  llvm::TypeSize SrcSize = LF.LM.getDataLayout().getTypeAllocSize(SrcTy);
+
+  if ((isa<IntType>(Ty) || isa<PointerType>(Ty)) &&
+      (isa<IntType>(SrcTy) || isa<PointerType>(SrcTy))) {
+    llvm_unreachable("NYI");
+  }
+
+  // If load is legal, just bitcast the src pointer.
+  if (!SrcSize.isScalable() && !DstSize.isScalable() &&
+      SrcSize.getFixedValue() >= DstSize.getFixedValue()) {
+    // Generally SrcSize is never greater than DstSize, since this means we are
+    // losing bits. However, this can happen in cases where the structure has
+    // additional padding, for example due to a user specified alignment.
+    //
+    // FIXME: Assert that we aren't truncating non-padding bits when have access
+    // to that information.
+    return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
+                                          Src);
   }
 
   llvm_unreachable("NYI");

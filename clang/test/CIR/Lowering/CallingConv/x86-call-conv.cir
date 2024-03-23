@@ -79,9 +79,21 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : f64
   }
 
-  // cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
-  //   cir.return %arg0 : !cir.bool
-  // }
+  // CHECK: @Bool(%arg0: !u1i {cir.zeroext}) -> (!u1i {cir.zeroext})
+  cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
+    // CHECK: %[[#V0:]] = cir.alloca !cir.bool, cir.ptr <!cir.bool>
+    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u1i), !cir.bool
+    // CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, cir.ptr <!cir.bool>
+    %0 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["arg", init] {alignment = 1 : i64}
+    %1 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["__retval"] {alignment = 1 : i64}
+    cir.store %arg0, %0 : !cir.bool, cir.ptr <!cir.bool>
+    %2 = cir.load %0 : cir.ptr <!cir.bool>, !cir.bool
+    cir.store %2, %1 : !cir.bool, cir.ptr <!cir.bool>
+    %3 = cir.load %1 : cir.ptr <!cir.bool>, !cir.bool
+    // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !u1i
+    // CHECK: cir.return %[[#V5]] : !u1i
+    cir.return %3 : !cir.bool
+  }
 
   // TODO(cir): Support pointer types.
 
@@ -91,14 +103,28 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 
   // TODO(cir): Support struct types coercion.
 
-  // cir.func @coerceStructToI64(%arg0: !u64i) {
-  cir.func @coerceStructToI64(%arg0: !ty_22CoerceToI6422) {
-    // CHECK: %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, [""] {alignment = 4 : i64}
-    %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["arg", init] {alignment = 4 : i64}
-    // CHECK: %1 = cir.cast(bitcast, %arg0 : !u64i), !ty_22CoerceToI6422
-    // CHECK: cir.store %1, %0 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
+
+//===----------------------------------------------------------------------===//
+// Test call conv struct types coercion.
+//===----------------------------------------------------------------------===//
+
+  cir.func @coerceStructToI64(%arg0: !ty_22CoerceToI6422) -> !ty_22CoerceToI6422 {
+    // CHECK: %[[#V0:]] = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
+    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22CoerceToI6422
+    // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
+    %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["s", init] {alignment = 4 : i64}
+    %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["__retval"] {alignment = 4 : i64}
     cir.store %arg0, %0 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    cir.return
+    %2 = cir.get_member %1[0] {name = "a"} : !cir.ptr<!ty_22CoerceToI6422> -> !cir.ptr<!s32i>
+    %3 = cir.const(#cir.int<1> : !s32i) : !s32i
+    cir.store %3, %2 : !s32i, cir.ptr <!s32i>
+    %4 = cir.get_member %1[1] {name = "b"} : !cir.ptr<!ty_22CoerceToI6422> -> !cir.ptr<!s32i>
+    %5 = cir.const(#cir.int<2> : !s32i) : !s32i
+    cir.store %5, %4 : !s32i, cir.ptr <!s32i>
+    %6 = cir.load %1 : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
+    // CHECK: %[[#V8:]] = cir.cast(bitcast, %{{.+}} : !ty_22CoerceToI6422), !u64i
+    // CHECK: cir.return %[[#V8]] : !u64i
+    cir.return %6 : !ty_22CoerceToI6422
   }
 
 } // module.
