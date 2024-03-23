@@ -21,9 +21,11 @@ class LowerFunction {
 
   PatternRewriter &rewriter;
   FuncOp SrcFn; // Original ABI-agnostic function.
+  FuncOp NewFn; // New ABI-aware function.
 
 public:
-  LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter, FuncOp srcFn);
+  LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter, FuncOp srcFn,
+                FuncOp newFn);
   ~LowerFunction() = default;
 
   LoweringModule &LM; // Per-module state.

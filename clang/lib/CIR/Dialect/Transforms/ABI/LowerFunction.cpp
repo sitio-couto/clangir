@@ -109,11 +109,25 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
   }
 }
 
+Value emitAddressAtOffset(LowerFunction &LF, Value addr,
+                          const ABIArgInfo &info) {
+  if (unsigned offset = info.getDirectOffset()) {
+    llvm_unreachable("NYI");
+  }
+  return addr;
+}
+
+Value createCoercedLoad(Value Src, Type Ty, LowerFunction &LF) {
+  llvm_unreachable("NYI");
+}
+
 } // namespace
 
+// FIXME(cir): Pass SrcFn and NewFn around instead of having then as attributes.
 LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter,
-                             FuncOp srcFn)
-    : Target(lm.getTarget()), rewriter(rewriter), SrcFn(srcFn), LM(lm) {}
+                             FuncOp srcFn, FuncOp newFn)
+    : Target(lm.getTarget()), rewriter(rewriter), SrcFn(srcFn), NewFn(newFn),
+      LM(lm) {}
 
 /// This method has partial parity with CodeGenFunction::EmitFunctionProlog from
 /// the original codegen. However, it focuses on the ABI-specific details. On
@@ -278,6 +292,12 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
   }
 }
 
+static AllocaOp getResultAlloca(ReturnOp retOp) {
+  if (auto loadOp = retOp.getOperand(0).getDefiningOp<LoadOp>())
+    return cast<AllocaOp>(loadOp.getAddr().getDefiningOp());
+  llvm_unreachable("NYI");
+}
+
 void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
   // NOTE(cir): no-return, naked, and no result functions should be handled in
   // CIRGen.
@@ -287,6 +307,10 @@ void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
   const ABIArgInfo &RetAI = FI.getReturnInfo();
 
   switch (RetAI.getKind()) {
+
+  case ABIArgInfo::Ignore:
+    break;
+
   case ABIArgInfo::Extend:
   case ABIArgInfo::Direct:
     // FIXME(cir): Should we call ConvertType(RetTy) here?
@@ -310,7 +334,18 @@ void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
         return;
       }
     } else {
-      llvm_unreachable("NYI");
+      // NOTE(cir): Unlike the original codegen, CIR may have multiple return
+      // statements in the function body. We have to handle this here.
+      for (auto returnOp : NewFn.getOps<ReturnOp>()) {
+        mlir::PatternRewriter::InsertionGuard guard(rewriter);
+        rewriter.setInsertionPoint(returnOp);
+
+        // If the value is offset in memory, apply the offset now.
+        Value V = emitAddressAtOffset(*this, getResultAlloca(returnOp), RetAI);
+
+        RV = createCoercedLoad(V, RetAI.getCoerceToType(), *this);
+        rewriter.replaceOpWithNewOp<ReturnOp>(returnOp, RV);
+      }
     }
 
     // TODO(cir): Should AutoreleaseResult be handled here?
@@ -320,11 +355,8 @@ void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
     llvm_unreachable("Unhandled ABIArgInfo::Kind");
   }
 
-  if (RV) {
-    llvm_unreachable("NYI");
-  } else {
-    llvm_unreachable("NYI");
-  }
+  // NOTE(cir): Skip the creation of the return statement. We instead patch the
+  // existing return statements with the new ABI-specific value.
 }
 
 void LowerFunction::finishFunction(const LoweringFunctionInfo &FI) {
@@ -362,6 +394,8 @@ void LowerFunction::generateCode(FuncOp GD, FuncOp Fn,
          "Missing RAUW?");
   assert(SrcFn.getBody().hasOneBlock() &&
          "Multiple blocks in original function not supported");
+
+  // Move old function body to new function.
   rewriter.mergeBlocks(&SrcFn.getBody().front(), &Fn.getBody().front(),
                        Fn.getArguments());
 

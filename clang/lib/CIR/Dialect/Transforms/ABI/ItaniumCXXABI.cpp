@@ -30,7 +30,11 @@ bool ItaniumCXXABI::classifyReturnType(LoweringFunctionInfo &FI) const {
   if (!RD)
     return false;
 
-  llvm_unreachable("NYI");
+  // If C++ prohibits us from making a copy, return by address.
+  if (!MissingFeature::canPassInRegisters())
+    llvm_unreachable("NYI");
+
+  return false;
 }
 
 CIRCXXABI *CreateItaniumCXXABI(LoweringModule &CGM) {

@@ -394,7 +394,7 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
       getAddrOfFunction(op, Ty, /*ForVTable=*/false, /*DontDefer=*/true,
                         /*IsForDefinition=*/true);
 
-  LowerFunction(*this, rewriter, op).generateCode(op, newFn, FI);
+  LowerFunction(*this, rewriter, op, newFn).generateCode(op, newFn, FI);
 
   // Erase original ABI-agnostic function.
   rewriter.eraseOp(op);
