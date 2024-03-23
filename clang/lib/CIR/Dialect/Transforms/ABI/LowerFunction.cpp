@@ -117,7 +117,24 @@ Value emitAddressAtOffset(LowerFunction &LF, Value addr,
   return addr;
 }
 
-Value createCoercedLoad(Value Src, Type Ty, LowerFunction &LF) {
+/// After the calling convention is lowered, an ABI-agnostic type might have to
+/// be loaded back to its ABI-aware couterpart so it may be returned. If they
+/// differ, we have to do a coerced load. A coerced load, which means to load a
+/// type to another despite that they represent the same value. The simplest
+/// cases can be solved with a mere bitcast.
+Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
+  Type SrcTy = Src.getType();
+
+  // If SrcTy and Ty are the same, nothing to do.
+  if (SrcTy == Ty)
+    return Src;
+
+  // If is the special boolean case, simply bitcast it.
+  if (SrcTy.isa<BoolType>() && Ty.isa<IntType>()) {
+    return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
+                                           Src);
+  }
+
   llvm_unreachable("NYI");
 }
 
@@ -336,16 +353,19 @@ void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
     } else {
       // NOTE(cir): Unlike the original codegen, CIR may have multiple return
       // statements in the function body. We have to handle this here.
-      for (auto returnOp : NewFn.getOps<ReturnOp>()) {
-        mlir::PatternRewriter::InsertionGuard guard(rewriter);
+      mlir::PatternRewriter::InsertionGuard guard(rewriter);
+      NewFn->walk([&](ReturnOp returnOp) {
         rewriter.setInsertionPoint(returnOp);
 
-        // If the value is offset in memory, apply the offset now.
-        Value V = emitAddressAtOffset(*this, getResultAlloca(returnOp), RetAI);
+        // NOTE(cir): I'm not sure if we need this offset here or in CIRGen.
+        // Perhaps both? For now I'm just ignoring it.
+        // Value V = emitAddressAtOffset(*this, getResultAlloca(returnOp),
+        // RetAI);
 
-        RV = createCoercedLoad(V, RetAI.getCoerceToType(), *this);
+        RV = castReturnValue(returnOp->getOperand(0), RetAI.getCoerceToType(),
+                             *this);
         rewriter.replaceOpWithNewOp<ReturnOp>(returnOp, RV);
-      }
+      });
     }
 
     // TODO(cir): Should AutoreleaseResult be handled here?

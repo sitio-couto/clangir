@@ -30,6 +30,8 @@ public:
 
   LoweringModule &LM; // Per-module state.
 
+  PatternRewriter &getRewriter() const { return rewriter; }
+
   const clang::TargetInfo &getTarget() const { return Target; }
 
   void emitFunctionProlog(const LoweringFunctionInfo &FI, FuncOp Fn,
