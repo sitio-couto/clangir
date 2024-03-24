@@ -42,7 +42,7 @@ namespace cir {
 // Rewrite Patterns
 //===----------------------------------------------------------------------===//
 
-struct DummyRewrite : public OpRewritePattern<FuncOp> {
+struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
   using OpRewritePattern<FuncOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(FuncOp op,
@@ -70,9 +70,15 @@ struct DummyRewrite : public OpRewritePattern<FuncOp> {
 
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
-    // TODO(cir): Handle return values.
-    // TODO(cir): Rewrite function calls with new signature.
+    return success();
+  }
+};
 
+struct CallConvFuncCallRewrite : public OpRewritePattern<CallOp> {
+  using OpRewritePattern<CallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(CallOp op,
+                                PatternRewriter &rewriter) const final {
     return success();
   }
 };
@@ -90,7 +96,10 @@ struct CallConvLoweringPass
 };
 
 void populateCallConvLoweringPassPatterns(RewritePatternSet &patterns) {
-  patterns.add<DummyRewrite>(patterns.getContext());
+  patterns.add<
+    CallConvFuncDefRewrite,
+    CallConvFuncCallRewrite
+  >(patterns.getContext());
 }
 
 void CallConvLoweringPass::runOnOperation() {

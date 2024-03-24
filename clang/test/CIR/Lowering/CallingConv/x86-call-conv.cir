@@ -19,13 +19,12 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // Test trivial call conv lowering scenarios.
 //===----------------------------------------------------------------------===//
 
-  // CHECK: func @Void()
+  // CHECK: @Void()
   cir.func @Void() {
     cir.return
   }
 
   // TODO(cir): Missing noundef attributes in some of the following tests.
-  // TODO(cir): Signedness of the integer types is not being preserved.
 
   // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
   cir.func @UChar(%arg0: !u8i) -> !u8i {
@@ -66,8 +65,6 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   cir.func @SLong(%arg0: !s64i) -> !s64i {
     cir.return %arg0 : !s64i
   }
-
-  // TODO(cir): Floating point types.
 
   // CHECK: cir.func @Float(%arg0: f32) -> f32
   cir.func @Float(%arg0: f32) -> f32 {
