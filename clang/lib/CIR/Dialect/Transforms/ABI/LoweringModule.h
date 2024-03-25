@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CIRContext.h"
+#include "LoweringCall.h"
 #include "LoweringTypes.h"
 #include "MissingFeature.h"
 #include "TargetLoweringInfo.h"
@@ -77,9 +78,8 @@ public:
   void
   constructAttributeList(StringRef Name, const LoweringFunctionInfo &FI,
                          FuncOp CalleeInfo, // TODO(cir): Implement CalleeInfo?
-                         FuncOp newFn,
-                         unsigned &CallingConv, bool AttrOnCallSite,
-                         bool IsThunk);
+                         FuncOp newFn, unsigned &CallingConv,
+                         bool AttrOnCallSite, bool IsThunk);
 
   void setCIRFunctionAttributes(FuncOp GD, const LoweringFunctionInfo &Info,
                                 FuncOp F, bool IsThunk);
@@ -98,6 +98,9 @@ public:
 
   void rewriteGlobalFunctionDefinition(FuncOp op, LoweringModule &state,
                                        PatternRewriter &rewriter);
+
+  void rewriteFunctionCall(CallOp op,
+                           ReturnValueSlot ReturnValue = ReturnValueSlot());
 };
 
 } // namespace cir

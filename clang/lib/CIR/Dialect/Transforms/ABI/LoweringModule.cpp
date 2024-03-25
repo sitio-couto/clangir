@@ -400,5 +400,11 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   rewriter.eraseOp(op);
 }
 
+void LoweringModule::rewriteFunctionCall(CallOp op,
+                                         ReturnValueSlot ReturnValue) {
+  llvm::outs() << "Rewriting Call ";
+  op->getName().print(llvm::outs());
+}
+
 } // namespace cir
 } // namespace mlir

@@ -47,6 +47,7 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
 
   LogicalResult matchAndRewrite(FuncOp op,
                                 PatternRewriter &rewriter) const final {
+    // FIXME(cir): Organize the whole LoweringModule initialization.
     auto module = op->getParentOfType<mlir::ModuleOp>();
     auto dataLayout =
         module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())
@@ -74,11 +75,39 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
   }
 };
 
+// FIXME(cir): I'm not entirely sure if it is a good idea to rewrite the calls
+// on a separate pattern, mostly because I'm not sure how these rewrites are
+// scheduled (concurrent or not) and the state is going to be recreated. I'm
+// going to keep it like this for now.
 struct CallConvFuncCallRewrite : public OpRewritePattern<CallOp> {
   using OpRewritePattern<CallOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(CallOp op,
                                 PatternRewriter &rewriter) const final {
+    // FIXME(cir): Organize the whole LoweringModule initialization.
+    auto module = op->getParentOfType<mlir::ModuleOp>();
+    auto dataLayout =
+        module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())
+            .cast<StringAttr>();
+
+    llvm::Triple triple(
+        module->getAttr("cir.triple").cast<StringAttr>().getValue());
+    clang::TargetOptions targetOptions;
+    targetOptions.Triple = triple.str();
+
+    auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
+
+    // FIXME(cir): This just uses the default language options.
+    assert(MissingFeature::langOptions());
+    clang::LangOptions langOpts;
+
+    auto context = CIRContext(module.getContext(), langOpts);
+    context.initBuiltinTypes(*targetInfo);
+
+    LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
+
+    state.rewriteFunctionCall(op);
+
     return success();
   }
 };
@@ -96,10 +125,8 @@ struct CallConvLoweringPass
 };
 
 void populateCallConvLoweringPassPatterns(RewritePatternSet &patterns) {
-  patterns.add<
-    CallConvFuncDefRewrite,
-    CallConvFuncCallRewrite
-  >(patterns.getContext());
+  patterns.add<CallConvFuncDefRewrite, CallConvFuncCallRewrite>(
+      patterns.getContext());
 }
 
 void CallConvLoweringPass::runOnOperation() {
@@ -111,7 +138,7 @@ void CallConvLoweringPass::runOnOperation() {
   // Collect operations to be considered by the pass.
   SmallVector<Operation *, 16> ops;
   getOperation()->walk([&](Operation *op) {
-    if (isa<FuncOp>(op))
+    if (isa<FuncOp, CallOp>(op))
       ops.push_back(op);
   });
 
