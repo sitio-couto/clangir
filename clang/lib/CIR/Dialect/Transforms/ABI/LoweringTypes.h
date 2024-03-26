@@ -60,7 +60,13 @@ public:
 
   const LoweringFunctionInfo &arrangeGlobalDeclaration(FuncOp GD);
 
+  /// Free functions are functions that are compatible with an ordinary C
+  /// function pointer type.
+  /// FIXME(cir): Does the "free function" concept makes sense here?
   const LoweringFunctionInfo &arrangeFunctionDeclaration(FuncOp FD);
+  const LoweringFunctionInfo &arrangeFreeFunctionCall(const OperandRange args,
+                                                      FuncType callOp,
+                                                      bool chainCall);
 
   /// Arrange the argument and result information for an abstract value
   /// of a given function type.  This is the method which all of the

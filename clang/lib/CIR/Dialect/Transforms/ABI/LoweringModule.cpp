@@ -11,6 +11,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Value.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
@@ -404,6 +405,12 @@ void LoweringModule::rewriteFunctionCall(CallOp op,
                                          ReturnValueSlot ReturnValue) {
   llvm::outs() << "Rewriting Call ";
   op->getName().print(llvm::outs());
+
+  // SmallVector<OpOperand> Args;
+  // if (Chain)
+  //   Args.add(RValue::get(Chain), CGM.getContext().VoidPtrTy);
+
+  // getTypes().arrangeFreeFunctionCall(Args, FnType, ChainCall);
 }
 
 } // namespace cir

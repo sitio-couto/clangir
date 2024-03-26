@@ -1,5 +1,9 @@
 #include "LoweringTypes.h"
+#include "LoweringFunctionInfo.h"
 #include "LoweringModule.h"
+#include "MissingFeature.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/IR/ValueRange.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -43,6 +47,45 @@ arrangeLLVMFunctionInfo(LoweringTypes &CGT, bool instanceMethod,
   FnInfoOpts opts =
       instanceMethod ? FnInfoOpts::IsInstanceMethod : FnInfoOpts::None;
   return CGT.arrangeLLVMFunctionInfo(resultType, opts, prefix, Required);
+}
+
+/// Arrange a call as unto a free function, except possibly with an
+/// additional number of formal parameters considered required.
+const LoweringFunctionInfo &
+arrangeFreeFunctionLikeCall(LoweringTypes &CGT, LoweringModule &CGM,
+                            const OperandRange &args, const FuncType fnType,
+                            unsigned numExtraRequiredArgs, bool chainCall) {
+  assert(args.size() >= numExtraRequiredArgs);
+
+  assert(MissingFeature::extParamInfo());
+
+  // In most cases, there are no optional arguments.
+  RequiredArgs required = RequiredArgs::All;
+
+  // If we have a variadic prototype, the required arguments are the
+  // extra prefix plus the arguments in the prototype.
+  // FIXME(cir): We need a way to check for no-proto function calls. In CIR,
+  // it's the function op that carries the no-proto flag, not the type. We could
+  // keep a symbol table here to query the func op, but it might create
+  // concurrency issues. This function is also missing the CallOp to check for
+  // no-proto calls.
+  if (/*IsPrototypedFunction=*/true) {
+    if (fnType.isVarArg())
+      llvm_unreachable("NYI");
+
+    if (!MissingFeature::extParamInfo())
+      llvm_unreachable("NYI");
+  }
+
+  // NOTE(cir): There's some CC stuff related to no-proto functions here, but
+  // I'm skipping it since it requires CodeGen info. Maybe we can embbed this
+  // information in the FuncOp during CIRGen.
+
+  // NOTE(cir):
+  SmallVector<Type, 16> argTypes;
+  // for (Value arg : args)
+  //   argTypes.push_back(arg.getType());
+  llvm_unreachable("NYI");
 }
 
 } // namespace
@@ -90,6 +133,18 @@ LoweringTypes::arrangeFunctionDeclaration(FuncOp FD) {
   }
 
   return arrangeFreeFunctionType(FTy);
+}
+
+/// Figure out the rules for calling a function with the given formal
+/// type using the given arguments.  The arguments are necessary
+/// because the function might be unprototyped, in which case it's
+/// target-dependent in crazy ways.
+const LoweringFunctionInfo &LoweringTypes::arrangeFreeFunctionCall(
+    const OperandRange args, const FuncType fnType, bool chainCall) {
+  // return arrangeFreeFunctionLikeCall(*this, LM, args, fnType, chainCall ? 1 :
+  // 0,
+  //                                    chainCall);
+  llvm_unreachable("NYI");
 }
 
 const LoweringFunctionInfo &LoweringTypes::arrangeGlobalDeclaration(FuncOp GD) {
