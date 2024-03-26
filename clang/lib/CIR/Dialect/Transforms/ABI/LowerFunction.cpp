@@ -161,7 +161,7 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
     // FIXME: Assert that we aren't truncating non-padding bits when have access
     // to that information.
     return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
-                                          Src);
+                                           Src);
   }
 
   llvm_unreachable("NYI");
@@ -173,6 +173,11 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
 LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter,
                              FuncOp srcFn, FuncOp newFn)
     : Target(lm.getTarget()), rewriter(rewriter), SrcFn(srcFn), NewFn(newFn),
+      LM(lm) {}
+
+LowerFunction::LowerFunction(LoweringModule &lm, PatternRewriter &rewriter,
+                             FuncOp srcFn, CallOp callOp)
+    : Target(lm.getTarget()), rewriter(rewriter), SrcFn(srcFn), callOp(callOp),
       LM(lm) {}
 
 /// This method has partial parity with CodeGenFunction::EmitFunctionProlog from

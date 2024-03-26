@@ -20,12 +20,19 @@ class LowerFunction {
   const clang::TargetInfo &Target;
 
   PatternRewriter &rewriter;
-  FuncOp SrcFn; // Original ABI-agnostic function.
-  FuncOp NewFn; // New ABI-aware function.
+  FuncOp SrcFn;  // Original ABI-agnostic function.
+  FuncOp NewFn;  // New ABI-aware function.
+  CallOp callOp; // Call operation to be lowered.
 
 public:
+  /// Builder for lowering calling convention of a function definition.
   LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter, FuncOp srcFn,
                 FuncOp newFn);
+
+  /// Builder for lowering calling convention of a call operation.
+  LowerFunction(LoweringModule &cgm, PatternRewriter &rewriter, FuncOp srcFn,
+                CallOp callOp);
+
   ~LowerFunction() = default;
 
   LoweringModule &LM; // Per-module state.

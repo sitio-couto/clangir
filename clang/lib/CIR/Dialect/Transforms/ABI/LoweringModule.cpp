@@ -11,6 +11,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/Value.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -405,6 +406,11 @@ void LoweringModule::rewriteFunctionCall(CallOp op,
                                          ReturnValueSlot ReturnValue) {
   llvm::outs() << "Rewriting Call ";
   op->getName().print(llvm::outs());
+
+  FuncOp callee = cast<FuncOp>(
+      SymbolTable::lookupNearestSymbolFrom(op, op.getCalleeAttr()));
+
+  LowerFunction(*this, rewriter, callee, op);
 
   // SmallVector<OpOperand> Args;
   // if (Chain)
