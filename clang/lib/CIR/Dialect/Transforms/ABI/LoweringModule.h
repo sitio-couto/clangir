@@ -99,8 +99,7 @@ public:
   void rewriteGlobalFunctionDefinition(FuncOp op, LoweringModule &state,
                                        PatternRewriter &rewriter);
 
-  void rewriteFunctionCall(CallOp op,
-                           ReturnValueSlot ReturnValue = ReturnValueSlot());
+  void rewriteFunctionCall(CallOp op);
 };
 
 } // namespace cir

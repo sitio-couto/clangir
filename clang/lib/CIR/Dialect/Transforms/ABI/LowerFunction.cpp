@@ -1,5 +1,6 @@
 #include "LowerFunction.h"
 #include "CIRToCIRArgMapping.h"
+#include "LoweringCall.h"
 #include "LoweringFunctionInfo.h"
 #include "LoweringModule.h"
 #include "MissingFeature.h"
@@ -9,6 +10,7 @@
 #include "mlir/Support/LLVM.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TypeSize.h"
 #include <algorithm>
@@ -521,6 +523,162 @@ void LowerFunction::buildBooleanStore(Value Val, Value Dest) {
 
   Val = rewriter.create<CastOp>(loc, pointeeTy, CastKind::bitcast, Val);
   rewriter.create<StoreOp>(loc, Val, Dest);
+}
+
+/// Rewrite a call operation to abide to the ABI calling convention.
+///
+/// NOTE(cir): This method has partial parity to CodeGenFunction's
+/// EmitCallEpxr method. The core differences is that is focuses only on
+/// ABI-specific code emission and does not return a RValue.
+void LowerFunction::rewriteCallOp(CallOp op, ReturnValueSlot retValSlot) {
+
+  // TODO(cir): Check if BlockCall, CXXMemberCall, CUDAKernelCall,
+  // CXXOperatorMember,  required special handling here. These should be handled
+  // in CIRGen. If there is call conv or ABI-specific stuff to be handled, them
+  // we should do it here.
+
+  assert(SrcFn && "No source function");
+
+  // TODO(cir): Also check if Builtin and CXXPeseudoDtor need special handling
+  // here. These should be handled in CIRGen. If there is call conv or
+  // ABI-specific stuff to be handled, them we should do it here.
+
+  // NOTE(cir): There is no direct way to fetch the function type from the
+  // CallOp, so we fecch it from the source function. The issue is that there is
+  // no way to know if said type has already been ABI-lowered.
+  rewriteCallOp(SrcFn.getFunctionType(), SrcFn, op, retValSlot);
+  llvm_unreachable("NYI");
+}
+
+/// Rewrite a call operation to abide to the ABI calling convention.
+///
+/// NOTE(cir): This method has partial parity to CodeGenFunction's
+/// EmitCall method.
+Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
+                                   CallOp callOp, ReturnValueSlot retValSlot,
+                                   Value Chain) {
+  // NOTE(cir): Skip a bunch of function pointer stuff and AST declaration
+  // asserts. Also skip sanitizers, as these should likely be handled at CIRGen.
+
+  SmallVector<Value> Args;
+  if (Chain)
+    llvm_unreachable("NYI");
+
+  // TODO(cir): Must identify CXX operator function calls.
+  EvaluationOrder order = EvaluationOrder::Default;
+  if (!MissingFeature::isCXXOperatorCall())
+    llvm_unreachable("NYI");
+
+  rewriteCallArgs(Args, calleeTy, callOp.getArgOperands(), origCallee,
+                  /*ParamsToSkip=*/0, order);
+
+  llvm_unreachable("NYI");
+}
+
+/// Rewrite a call operation arguments to abide to the ABI calling convention.
+///
+/// NOTE(cir): This method has partial parity to CodeGenFunction's
+/// EmitCallArgs method.
+void LowerFunction::rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
+                                    OperandRange argRange, FuncOp callee,
+                                    int paramsToSkip, EvaluationOrder order) {
+  SmallVector<Type, 16> argTypes;
+
+  assert((paramsToSkip == 0 || !callee.getNoProto()) &&
+         "Can't skip parameters if type info is not provided");
+
+  // This variable only captures *explicitly* written conventions, not those
+  // applied by default via command line flags or target defaults, such as
+  // thiscall, aapcs, stdcall via -mrtd, etc. Computing that correctly would
+  // require knowing if this is a C++ instance method or being able to see
+  // unprototyped FunctionTypes.
+  clang::CallingConv ExplicitCC = clang::CallingConv::CC_C;
+
+  // First, if a prototype was provided, use those argument types.
+  bool IsVariadic = false;
+  if (!callee.getNoProto()) {
+    if (!MissingFeature::ObjC()) {
+      llvm_unreachable("NYI");
+    } else {
+      IsVariadic = fnTy.isVarArg();
+      // TODO(cir): Override calling convention if necessary.
+      assert(MissingFeature::extParamInfo());
+      argTypes.assign(fnTy.getInputs().begin() + paramsToSkip,
+                      fnTy.getInputs().end());
+    }
+    // NOTE(cir): Skipping some debugging stuff here.
+  }
+
+  for (Value A : llvm::drop_begin(argRange, argTypes.size()))
+    llvm_unreachable("NYI");
+  assert((int)argTypes.size() == (argRange.end() - argRange.begin()));
+
+  // We must evaluate arguments from right to left in the MS C++ ABI,
+  // because arguments are destroyed left to right in the callee. As a special
+  // case, there are certain language constructs that require left-to-right
+  // evaluation, and in those cases we consider the evaluation order requirement
+  // to trump the "destruction order is reverse construction order" guarantee.
+  bool LeftToRight =
+      LM.getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()
+          ? order == EvaluationOrder::ForceLeftToRight
+          : order != EvaluationOrder::ForceRightToLeft;
+
+  if (!MissingFeature::inallocaArgument()) {
+    llvm_unreachable("NYI");
+  }
+
+  // Evaluate each argument in the appropriate order.
+  size_t CallArgsStart = args.size();
+  for (unsigned I = 0, E = argTypes.size(); I != E; ++I) {
+    unsigned Idx = LeftToRight ? I : E - I - 1;
+    auto Arg = argRange.begin() + Idx;
+    unsigned InitialArgSize = args.size();
+    // If *Arg is an ObjCIndirectCopyRestoreExpr, check that either the types of
+    // the argument and parameter match or the objc method is parameterized.
+    assert(MissingFeature::ObjC());
+    rewriteCallArg(args, *Arg, argTypes[Idx]);
+    // In particular, we depend on it being the last arg in Args, and the
+    // objectsize bits depend on there only being one arg if !LeftToRight.
+    assert(InitialArgSize + 1 == args.size() &&
+           "The code below depends on only adding one arg per EmitCallArg");
+    (void)InitialArgSize;
+    // Since pointer argument are never emitted as LValue, it is safe to emit
+    // non-null argument check for r-value only.
+    // FIXME(cir): Should we handle this non-null arg check here?
+  }
+
+  llvm_unreachable("NYI");
+}
+
+void LowerFunction::rewriteCallArg(SmallVector<Value> &args, Value arg,
+                                   Type argTy) {
+  // NOTE(cir): Ignoring debugging info here. Handle it in CIRGen.
+  if (!MissingFeature::ObjC()) {
+    llvm_unreachable("NYI");
+  }
+
+  if (!MissingFeature::isGLValue()) {
+    llvm_unreachable("NYI");
+  }
+
+  bool hasAggregateEvalKind = hasAggregateEvaluationKind(argTy);
+
+  if (!MissingFeature::MSABI()) {
+    llvm_unreachable("NYI");
+  }
+
+  // FIXME(cir): Skipping some L to RValue cast stuff here. Not sure how to
+  // handle it.
+
+  args.push_back(arg);
+}
+
+TypeEvaluationKind LowerFunction::getEvaluationKind(Type type) {
+  // FIXME(cir): Implement type classes for CIR types.
+  if (type.isa<StructType>())
+    return TypeEvaluationKind::TEK_Aggregate;
+
+  llvm_unreachable("NYI");
 }
 
 /// Emit an alloca (or GlobalValue depending on target)

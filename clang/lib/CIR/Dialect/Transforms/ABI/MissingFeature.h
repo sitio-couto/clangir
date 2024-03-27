@@ -41,6 +41,10 @@ struct MissingFeature {
   // Some ABI-specific attributes have not yet been implemented in CIR.
   static bool noFPClassAttr() { return true; }
 
+  // There are several nuances when dealing with the MS ABI. These are not yet
+  // implemented in CIR and are marked by the function below.
+  static bool MSABI() { return true; }
+
   // CIR does not have enough information to easily distinguish certain
   // properties between language elements. For example, it can't distinguish
   // functions (ctor, dtor, method, etc), it does not carry attributes
@@ -48,12 +52,14 @@ struct MissingFeature {
   // details.
   static bool isCtorOrDtor() { return true; }
   static bool isMethod() { return true; }
+  static bool isCXXOperatorCall() { return true; }
   static bool vectorType() { return true; }
   // NOTE(cir): This might not be necessary, since Clang queries Enums to find
   // their underlying integer type, which is already an int in CIR.
   static bool isEnum() { return true; }
   static bool isBuiltinType() { return true; }
   static bool isCXXRecord() { return true; }
+  static bool isGLValue() { return true; }
   static bool recordBasesIterator() { return true; }
   static bool canPassInRegisters() { return true; }
   static bool alignmentAttribute() { return true; }

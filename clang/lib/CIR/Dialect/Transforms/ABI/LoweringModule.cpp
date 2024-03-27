@@ -402,21 +402,16 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   rewriter.eraseOp(op);
 }
 
-void LoweringModule::rewriteFunctionCall(CallOp op,
-                                         ReturnValueSlot ReturnValue) {
+void LoweringModule::rewriteFunctionCall(CallOp op) {
   llvm::outs() << "Rewriting Call ";
   op->getName().print(llvm::outs());
 
   FuncOp callee = cast<FuncOp>(
       SymbolTable::lookupNearestSymbolFrom(op, op.getCalleeAttr()));
 
-  LowerFunction(*this, rewriter, callee, op);
+  LowerFunction(*this, rewriter, callee, op).rewriteCallOp(op);
 
-  // SmallVector<OpOperand> Args;
-  // if (Chain)
-  //   Args.add(RValue::get(Chain), CGM.getContext().VoidPtrTy);
-
-  // getTypes().arrangeFreeFunctionCall(Args, FnType, ChainCall);
+  llvm_unreachable("NYI");
 }
 
 } // namespace cir
