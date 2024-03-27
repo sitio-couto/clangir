@@ -547,7 +547,6 @@ void LowerFunction::rewriteCallOp(CallOp op, ReturnValueSlot retValSlot) {
   // CallOp, so we fecch it from the source function. The issue is that there is
   // no way to know if said type has already been ABI-lowered.
   rewriteCallOp(SrcFn.getFunctionType(), SrcFn, op, retValSlot);
-  llvm_unreachable("NYI");
 }
 
 /// Rewrite a call operation to abide to the ABI calling convention.
@@ -569,8 +568,11 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   if (!MissingFeature::isCXXOperatorCall())
     llvm_unreachable("NYI");
 
-  rewriteCallArgs(Args, calleeTy, callOp.getArgOperands(), origCallee,
-                  /*ParamsToSkip=*/0, order);
+  // FIXME(cir): This is wrong. This stack is pairing the emission of the
+  // ABI-agnostic arguments into SSA values, which is already done by CIRGen.
+  // What we should copy here is the emission of the ABI-specific function call.
+  // rewriteCallArgs(Args, calleeTy, callOp.getArgOperands(), origCallee,
+  //                 /*ParamsToSkip=*/0, order);
 
   llvm_unreachable("NYI");
 }
@@ -647,7 +649,33 @@ void LowerFunction::rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
     // FIXME(cir): Should we handle this non-null arg check here?
   }
 
+  if (!LeftToRight) {
+    llvm_unreachable("NYI");
+  }
+}
+
+Value LowerFunction::rewriteAggExpr(Value aggregate) {
   llvm_unreachable("NYI");
+}
+
+Value LowerFunction::rewriteAnyExpr(Value V, bool ignoreResult) {
+  switch (getEvaluationKind(V.getType())) {
+  case TEK_Aggregate:
+    // NOTE(cir): AggTemp creation is ignored here. We're rewriting stuff.
+    // Creation is in CIRGen.
+    return rewriteAggExpr(V);
+  default:
+    llvm::outs() << "Unhandled call argument kind: "
+                 << getEvaluationKind(V.getType()) << "\n";
+    llvm_unreachable("NYI");
+  }
+}
+
+Value LowerFunction::rewriteAnyExprToTemp(Value V) {
+  // NOTE(cir): I'm skipping AggValueSlot here for simplicity, but we might need
+  // to handle that later. Also skipping the aggregate temp creation, as it is
+  // already done in CIRGen.
+  return rewriteAnyExpr(V);
 }
 
 void LowerFunction::rewriteCallArg(SmallVector<Value> &args, Value arg,
@@ -670,7 +698,7 @@ void LowerFunction::rewriteCallArg(SmallVector<Value> &args, Value arg,
   // FIXME(cir): Skipping some L to RValue cast stuff here. Not sure how to
   // handle it.
 
-  args.push_back(arg);
+  args.push_back(rewriteAnyExprToTemp(arg));
 }
 
 TypeEvaluationKind LowerFunction::getEvaluationKind(Type type) {

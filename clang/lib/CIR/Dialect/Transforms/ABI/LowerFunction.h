@@ -130,6 +130,10 @@ public:
   /// Return the TypeEvaluationKind of Type \c T.
   static TypeEvaluationKind getEvaluationKind(Type T);
 
+  Value rewriteAnyExprToTemp(Value V);
+  Value rewriteAnyExpr(Value V, bool ignoreResult = false);
+  Value rewriteAggExpr(Value V);
+
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission
   //===--------------------------------------------------------------------===//
