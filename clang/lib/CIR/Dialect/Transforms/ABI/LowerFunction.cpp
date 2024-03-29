@@ -53,8 +53,8 @@ static Value enterStructPointerForCoercedAccess(Value SrcPtr, StructType SrcSTy,
   llvm_unreachable("NYI");
 }
 
-/// CreateCoercedStore - Create a store to \arg Dst from \arg Src,
-/// where the source and destination may have different types.
+/// Create a store to \param Dst from \param Src where the source and
+/// destination may have different types.
 ///
 /// This safely handles the case when the src type is larger than the
 /// destination type; the upper bits of the src will be lost.
@@ -109,6 +109,52 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
   } else {
     llvm_unreachable("NYI");
   }
+}
+
+/// Create a load from \param SrcPtr interpreted as  a pointer to an object of
+/// type \param Ty, known to be aligned to  \param SrcAlign bytes.
+///
+/// This safely handles the case when the src type is smaller than the
+/// destination type; in this situation the values of bits which not present in
+/// the src are undefined.
+Value createCoercedLoad(Value Src, Type Ty, LowerFunction &CGF) {
+  Type SrcTy = Src.getType();
+
+  // If SrcTy and Ty are the same, just reuse the exising load.
+  if (SrcTy == Ty)
+    return Src;
+
+  llvm::TypeSize DstSize = CGF.LM.getDataLayout().getTypeAllocSize(Ty);
+
+  if (auto SrcSTy = dyn_cast<StructType>(SrcTy)) {
+    Src = enterStructPointerForCoercedAccess(Src, SrcSTy,
+                                             DstSize.getFixedValue(), CGF);
+    SrcTy = Src.getType();
+  }
+
+  llvm::TypeSize SrcSize = CGF.LM.getDataLayout().getTypeAllocSize(SrcTy);
+
+  // If the source and destination are integer or pointer types, just do an
+  // extension or truncation to the desired type.
+  if ((isa<IntType>(Ty) || isa<PointerType>(Ty)) &&
+      (isa<IntType>(SrcTy) || isa<PointerType>(SrcTy))) {
+    llvm_unreachable("NYI");
+  }
+
+  // If load is legal, just bitcast the src pointer.
+  if (!SrcSize.isScalable() && !DstSize.isScalable() &&
+      SrcSize.getFixedValue() >= DstSize.getFixedValue()) {
+    // Generally SrcSize is never greater than DstSize, since this means we are
+    // losing bits. However, this can happen in cases where the structure has
+    // additional padding, for example due to a user specified alignment.
+    //
+    // FIXME: Assert that we aren't truncating non-padding bits when have access
+    // to that information.
+    // Src = Src.withElementType();
+    return CGF.buildAggregateLoad(Src, Ty);
+  }
+
+  llvm_unreachable("NYI");
 }
 
 Value emitAddressAtOffset(LowerFunction &LF, Value addr,
@@ -514,6 +560,11 @@ void LowerFunction::buildAggregateStore(Value Val, Value Dest,
   rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
 }
 
+Value LowerFunction::buildAggregateLoad(Value Val, Type DestTy) {
+  Val = rewriter.create<CastOp>(Val.getLoc(), DestTy, CastKind::bitcast, Val);
+  return rewriter.create<LoadOp>(Val.getLoc(), Val);
+}
+
 void LowerFunction::buildBooleanStore(Value Val, Value Dest) {
   assert(Val.getType().isa<IntType>() && "Not an integer type");
   assert(Dest.getType().isa<PointerType>() && "Storing in a non-pointer!");
@@ -574,7 +625,251 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   // rewriteCallArgs(Args, calleeTy, callOp.getArgOperands(), origCallee,
   //                 /*ParamsToSkip=*/0, order);
 
-  llvm_unreachable("NYI");
+  const LoweringFunctionInfo &FnInfo = LM.getTypes().arrangeFreeFunctionCall(
+      callOp.getArgOperands(), calleeTy, /*chainCall=*/false);
+
+  // C99 6.5.2.2p6:
+  //   If the expression that denotes the called function has a type
+  //   that does not include a prototype, [the default argument
+  //   promotions are performed]. If the number of arguments does not
+  //   equal the number of parameters, the behavior is undefined. If
+  //   the function is defined with a type that includes a prototype,
+  //   and either the prototype ends with an ellipsis (, ...) or the
+  //   types of the arguments after promotion are not compatible with
+  //   the types of the parameters, the behavior is undefined. If the
+  //   function is defined with a type that does not include a
+  //   prototype, and the types of the arguments after promotion are
+  //   not compatible with those of the parameters after promotion,
+  //   the behavior is undefined [except in some trivial cases].
+  // That is, in the general case, we should assume that a call
+  // through an unprototyped function type works like a *non-variadic*
+  // call.  The way we make this work is to cast to the exact type
+  // of the promoted arguments.
+  //
+  // Chain calls use this same code path to add the invisible chain parameter
+  // to the function type.
+  if (origCallee.getNoProto() || Chain) {
+    llvm_unreachable("NYI");
+  }
+
+  assert(MissingFeature::CUDA());
+
+  // TODO(cir): LLVM IR has the concept of "CallBase", which is a base class for
+  // all types of calls. Perhaps we should have a CIR interface to mimic this
+  // class.
+  CallOp CallOrInvoke = {};
+  Value Call = rewriteCallOp(FnInfo, origCallee, retValSlot, Args, CallOrInvoke,
+                             /*isMustTail=*/false, callOp.getLoc());
+
+  // NOTE(cir): Skipping debug stuff here.
+
+  return Call;
+}
+
+Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
+                                   FuncOp Callee, ReturnValueSlot ReturnValue,
+                                   SmallVector<Value> &CallArgs,
+                                   CallOp CallOrInvoke, bool isMustTail,
+                                   Location loc) {
+  // FIXME: We no longer need the types from CallArgs; lift up and simplify.
+
+  // Handle struct-return functions by passing a pointer to the
+  // location that we would like to return into.
+  Type RetTy = CallInfo.getReturnType();
+  const ABIArgInfo &RetAI = CallInfo.getReturnInfo();
+
+  Type IRFuncTy = LM.getTypes().getFunctionType(CallInfo);
+
+  // NOTE(cir): Some target/ABI related checks happen here. I'm skipping them
+  // under the assumption that they are handled in CIRGen.
+
+  // 1. Set up the arguments.
+
+  // If we're using inalloca, insert the allocation after the stack save.
+  // FIXME: Do this earlier rather than hacking it in here!
+  Value ArgMemory = {};
+  if (StructType ArgStruct = CallInfo.getArgStruct()) {
+    llvm_unreachable("NYI");
+  }
+
+  CIRToCIRArgMapping IRFunctionArgs(LM.getContext(), CallInfo);
+  SmallVector<Value, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
+
+  // If the call returns a temporary with struct return, create a temporary
+  // alloca to hold the result, unless one is given to us.
+  Value SRetPtr = {};
+  Value SRetAlloca = {};
+  Value UnusedReturnSizePtr = nullptr;
+  if (RetAI.isIndirect() || RetAI.isCoerceAndExpand() || RetAI.isInAlloca()) {
+    llvm_unreachable("NYI");
+  }
+
+  assert(MissingFeature::Swift());
+
+  // FIXME(cir): Do we need to track lifetime markers here?
+
+  // Translate all of the arguments as necessary to match the IR lowering.
+  assert(CallInfo.arg_size() == CallArgs.size() &&
+         "Mismatch between function signature & arguments.");
+  unsigned ArgNo = 0;
+  LoweringFunctionInfo::const_arg_iterator info_it = CallInfo.arg_begin();
+  for (auto I = CallArgs.begin(), E = CallArgs.end(); I != E;
+       ++I, ++info_it, ++ArgNo) {
+    const ABIArgInfo &ArgInfo = info_it->info;
+
+    if (IRFunctionArgs.hasPaddingArg(ArgNo))
+      llvm_unreachable("NYI");
+
+    unsigned FirstIRArg, NumIRArgs;
+    std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
+
+    switch (ArgInfo.getKind()) {
+    case ABIArgInfo::Direct: {
+      if (!isa<StructType>(ArgInfo.getCoerceToType()) &&
+          ArgInfo.getCoerceToType() == info_it->type &&
+          ArgInfo.getDirectOffset() == 0) {
+        llvm_unreachable("NYI");
+      }
+
+      // FIXME: Avoid the conversion through memory if possible.
+      Value Src = {};
+      if (!I->getType().isa<StructType>()) {
+        llvm_unreachable("NYI");
+      } else {
+        // NOTE(cir): I'm leaving L/RValue analisys for CIRGen to handle.
+        Src = *I;
+      }
+
+      // If the value is offst in memory, apply the offset now.
+      // FIXME(cir): Is this offset already handled in CIRGen?
+      Src = emitAddressAtOffset(*this, Src, ArgInfo);
+
+      // Fast-isel and the optimizer generally like scalar values better than
+      // FCAs, so we flatten them if this is safe to do for this argument.
+      StructType STy = dyn_cast<StructType>(ArgInfo.getCoerceToType());
+      if (STy && ArgInfo.isDirect() && ArgInfo.getCanBeFlattened()) {
+        llvm_unreachable("NYI");
+      } else {
+        // In the simple case, just pass the coerced loaded value.
+        assert(NumIRArgs == 1);
+        Value Load = createCoercedLoad(Src, ArgInfo.getCoerceToType(), *this);
+
+        // FIXME(cir): We should probably handle CMSE non-secure calls here
+
+        // since they are a ARM-specific feature.
+        if (!MissingFeature::argUndefAttr())
+          llvm_unreachable("NYI");
+        IRCallArgs[FirstIRArg] = Load;
+      }
+
+      break;
+    }
+    default:
+      llvm::outs() << "Missing ABIArgInfo::Kind: " << ArgInfo.getKind() << "\n";
+      llvm_unreachable("NYI");
+    }
+
+    // NOTE(cir): We don't need the callee func ptr here.
+
+    if (ArgMemory || MissingFeature::inallocaArgument()) {
+      llvm_unreachable("NYI");
+    }
+
+    // NOTE(cir): There are some variadic related procedures here.
+    if (Callee.getFunctionType().isVarArg()) {
+      llvm_unreachable("NYI");
+    }
+  }
+
+  // 3. Perform the actual call.
+
+  // NOTE(cir): CIRGen handle when to "deactive" cleanups. We also skip some
+  // debugging stuff here.
+
+  // Update the largest vector width if any arguments have vector types.
+  assert(MissingFeature::vectorType());
+
+  // Compute the calling convention and attributes.
+  unsigned CallingConv;
+  // FIXME(cir): Skipping call attributes for now. Not sure if we have to do
+  // this at all since we already do it for the function definition.
+
+  // FIXME(cir): Implement the required procedures for strictfp function and
+  // fast-math.
+
+  // FIXME(cir): Add missing call-site attributes here if they are
+  // ABI/target-specific, otherwise, do it in CIRGen.
+
+  // NOTE(cir): Deciding whether to use Call or Invoke is done in CIRGen.
+
+  // Rewrite the actual call instruction.
+  // TODO(cir): Handle other types of CIR calls (e.g. cir.try_call).
+  // FIXME(cir): How can we ensure the Callee has been lowered to the ABI?
+  CallOp CI = rewriter.create<CallOp>(loc, Callee, IRCallArgs);
+
+  assert(MissingFeature::vectorType());
+
+  // NOTE(cir): There some ObjC, tail-call, debug, and attribute stuff here that
+  // I'm skipping.
+
+  // 4. Finish the call.
+
+  // If the call doesn't return, there is no need to translate the ABI-agnostic
+  // return value to its ABI-aware counterpart.
+  if (CI->getNumResults() == 0) {
+    llvm_unreachable("NYI");
+  }
+
+  // NOTE(cir): Skipping some tail-call, swift, writeback, memory management
+  // stuff here.
+
+  // Extract the return value.
+  Value Ret = [&] {
+    switch (RetAI.getKind()) {
+    case ABIArgInfo::Direct: {
+      Type RetIRTy = RetTy;
+      if (RetAI.getCoerceToType() == RetIRTy && RetAI.getDirectOffset() == 0) {
+        llvm_unreachable("NYI");
+      }
+
+      // If coercing a fixed vector from a scalable vector for ABI
+      // compatibility, and the types match, use the llvm.vector.extract
+      // intrinsic to perform the conversion.
+      if (!MissingFeature::vectorType()) {
+        llvm_unreachable("NYI");
+      }
+
+      Value DestVal = ReturnValue.getValue();
+      bool DestIsVolatile = ReturnValue.isVolatile();
+
+      // NOTE(cir): If the function returns, there should always be a valid
+      // return value present.
+      if (!DestVal) {
+        llvm_unreachable("NYI");
+      }
+
+      // An empty record can overlap other data (if declared with
+      // no_unique_address); omit the store for such types - as there is no
+      // actual data to store.
+      if (RetTy.dyn_cast<StructType>() &&
+          RetTy.cast<StructType>().getNumElements() != 0) {
+        Value StorePtr = emitAddressAtOffset(*this, DestVal, RetAI);
+        createCoercedStore(CI.getResult(0), StorePtr, DestIsVolatile, *this);
+      }
+
+      // NOTE(cir): No need to convert from a temp to an RValue. This is
+      // done in CIRGen
+      return DestVal;
+    }
+    default:
+      llvm_unreachable("Unhandled ABIArgInfo::Kind");
+    }
+  }(); // FIXME(cir): Why does the original codegen does this weird
+       // lambda thing?
+
+  // NOTE(cir): Emissions, lifetime markers, and dtors are handled in CIRGen.
+
+  return Ret;
 }
 
 /// Rewrite a call operation arguments to abide to the ABI calling convention.
@@ -618,8 +913,9 @@ void LowerFunction::rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
   // We must evaluate arguments from right to left in the MS C++ ABI,
   // because arguments are destroyed left to right in the callee. As a special
   // case, there are certain language constructs that require left-to-right
-  // evaluation, and in those cases we consider the evaluation order requirement
-  // to trump the "destruction order is reverse construction order" guarantee.
+  // evaluation, and in those cases we consider the evaluation order
+  // requirement to trump the "destruction order is reverse construction
+  // order" guarantee.
   bool LeftToRight =
       LM.getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()
           ? order == EvaluationOrder::ForceLeftToRight
@@ -635,8 +931,9 @@ void LowerFunction::rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
     unsigned Idx = LeftToRight ? I : E - I - 1;
     auto Arg = argRange.begin() + Idx;
     unsigned InitialArgSize = args.size();
-    // If *Arg is an ObjCIndirectCopyRestoreExpr, check that either the types of
-    // the argument and parameter match or the objc method is parameterized.
+    // If *Arg is an ObjCIndirectCopyRestoreExpr, check that either the types
+    // of the argument and parameter match or the objc method is
+    // parameterized.
     assert(MissingFeature::ObjC());
     rewriteCallArg(args, *Arg, argTypes[Idx]);
     // In particular, we depend on it being the last arg in Args, and the
@@ -672,9 +969,9 @@ Value LowerFunction::rewriteAnyExpr(Value V, bool ignoreResult) {
 }
 
 Value LowerFunction::rewriteAnyExprToTemp(Value V) {
-  // NOTE(cir): I'm skipping AggValueSlot here for simplicity, but we might need
-  // to handle that later. Also skipping the aggregate temp creation, as it is
-  // already done in CIRGen.
+  // NOTE(cir): I'm skipping AggValueSlot here for simplicity, but we might
+  // need to handle that later. Also skipping the aggregate temp creation, as
+  // it is already done in CIRGen.
   return rewriteAnyExpr(V);
 }
 

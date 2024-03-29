@@ -18,11 +18,7 @@ namespace cir {
 /// CGExprAgg?
 ///
 /// TODO: should vectors maybe be split out into their own thing?
-enum TypeEvaluationKind {
-  TEK_Scalar,
-  TEK_Complex,
-  TEK_Aggregate
-};
+enum TypeEvaluationKind { TEK_Scalar, TEK_Complex, TEK_Aggregate };
 
 class LowerFunction {
   LowerFunction(const LowerFunction &) = delete;
@@ -102,6 +98,9 @@ public:
   // allocated boolean value address.
   void buildBooleanStore(Value Val, Value Dest);
 
+  // Emit a simple bitcasted for a possible coerced aggregate type.
+  Value buildAggregateLoad(Value Val, Type DestTy);
+
   /// Rewrite a call operation to abide to the ABI calling convention.
   ///
   /// NOTE(cir): This method has partial parity to CodeGenFunction's
@@ -115,6 +114,9 @@ public:
   /// EmitCall method.
   Value rewriteCallOp(FuncType calleeTy, FuncOp origCallee, CallOp callOp,
                       ReturnValueSlot retValSlot, Value Chain = nullptr);
+  Value rewriteCallOp(const LoweringFunctionInfo &CallInfo, FuncOp Callee,
+                      ReturnValueSlot ReturnValue, SmallVector<Value> &CallArgs,
+                      CallOp CallOrInvoke, bool isMustTail, Location loc);
 
   /// Rewrite a call operation arguments to abide to the ABI calling convention.
   ///
