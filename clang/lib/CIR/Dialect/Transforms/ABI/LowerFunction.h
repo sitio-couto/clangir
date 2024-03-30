@@ -46,16 +46,6 @@ public:
 
   LoweringModule &LM; // Per-module state.
 
-  /// FIXME(cir): Is this required at CIR-level?
-  enum class EvaluationOrder {
-    ///! No language constraints on evaluation order.
-    Default,
-    ///! Language semantics require left-to-right evaluation.
-    ForceLeftToRight,
-    ///! Language semantics require right-to-left evaluation.
-    ForceRightToLeft
-  };
-
   PatternRewriter &getRewriter() const { return rewriter; }
 
   const clang::TargetInfo &getTarget() const { return Target; }
@@ -123,65 +113,8 @@ public:
                       SmallVector<Value> &CallArgs, CallOp CallOrInvoke,
                       bool isMustTail, Location loc);
 
-  /// Rewrite a call operation arguments to abide to the ABI calling convention.
-  ///
-  /// NOTE(cir): This method has partial parity to CodeGenFunction's
-  /// EmitCallArgs method.
-  void rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
-                       OperandRange argRange, FuncOp callee, int paramsToSkip,
-                       EvaluationOrder order);
-
-  /// Rewrite a single call argument to abide to the ABI calling convention.
-  void rewriteCallArg(SmallVector<Value> &args, Value arg, Type argTy);
-
   /// Return the TypeEvaluationKind of Type \c T.
   static TypeEvaluationKind getEvaluationKind(Type T);
-
-  Value rewriteAnyExprToTemp(Value V);
-  Value rewriteAnyExpr(Value V, bool ignoreResult = false);
-  Value rewriteAggExpr(Value V);
-
-  //===--------------------------------------------------------------------===//
-  //                            Declaration Emission
-  //===--------------------------------------------------------------------===//
-
-  // class ParamValue {
-  //   Value value;
-  //   Type type;
-  //   unsigned Alignment;
-  //   ParamValue(Value V, Type T, unsigned A)
-  //       : value(V), type(T), Alignment(A) {}
-  // public:
-  //   static ParamValue forDirect(Value value) {
-  //     return ParamValue(value, nullptr, 0);
-  //   }
-  //   static ParamValue forIndirect(Value addr) {
-  //     assert(addr.getType().isa<PointerType>());
-  //     addr.getType().cast<PointerType>().getABIAlignment(const
-  //     ::mlir::DataLayout &dataLayout, ::mlir::DataLayoutEntryListRef
-  //     params); assert(!addr.getAlig().isZero()); return
-  //     ParamValue(addr.getPointer(), addr.getElementType(),
-  //                       addr.getAlignment().getQuantity());
-  //   }
-
-  //   bool isIndirect() const { return Alignment != 0; }
-  //   Value *getAnyValue() const { return Value; }
-
-  //   Value *getDirectValue() const {
-  //     assert(!isIndirect());
-  //     return Value;
-  //   }
-
-  //   Address getIndirectAddress() const {
-  //     assert(isIndirect());
-  //     return Address(Value, ElementType,
-  //     CharUnits::fromQuantity(Alignment),
-  //                    KnownNonNull);
-  //   }
-  // };
-
-  /// Build a CIR function parameter declaration.
-  void buildParmDecl(const BlockArgument D, Value Arg, unsigned ArgNo);
 };
 
 } // namespace cir

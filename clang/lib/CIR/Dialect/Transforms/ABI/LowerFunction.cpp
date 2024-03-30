@@ -221,14 +221,6 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
   llvm_unreachable("NYI");
 }
 
-/// Retrieve the alloca that stores the result of a call.
-AllocaOp getResultAlloca(CallOp callOp) {
-  auto result = callOp.getResult(0);
-  assert(result.hasOneUse() && isa<StoreOp>(result.use_begin().getUser()));
-  auto storeOp = cast<StoreOp>(result.use_begin().getUser());
-  return storeOp.getAddr().getDefiningOp<AllocaOp>();
-}
-
 } // namespace
 
 // FIXME(cir): Pass SrcFn and NewFn around instead of having then as attributes.
@@ -624,7 +616,6 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
     llvm_unreachable("NYI");
 
   // TODO(cir): Must identify CXX operator function calls.
-  EvaluationOrder order = EvaluationOrder::Default;
   if (!MissingFeature::isCXXOperatorCall())
     llvm_unreachable("NYI");
 
@@ -673,6 +664,9 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   return CallResult;
 }
 
+// NOTE(cir): This method has partial parity to CodeGenFunction's EmitCall
+// method in CGCall.cpp. When incrementing it, use the original codegen as a
+// reference: add ABI-specific stuff and skip codegen stuff.
 Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
                                    FuncOp Callee, CallOp Caller,
                                    ReturnValueSlot ReturnValue,
@@ -834,6 +828,11 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   // Rewrite the return value.
   Value Ret = [&] {
     switch (RetAI.getKind()) {
+    case ABIArgInfo::Ignore:
+      // If we are ignoring an argument that had a result, make sure to
+      // construct the appropriate return value for our caller.
+      return Value{};
+
     case ABIArgInfo::Direct: {
       Type RetIRTy = RetTy;
       if (RetAI.getCoerceToType() == RetIRTy && RetAI.getDirectOffset() == 0) {
@@ -849,14 +848,14 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
       // FIXME(cir): Use return value slot here.
       Value RetVal = callOp.getResult(0);
-      bool DestIsVolatile = ReturnValue.isVolatile();
+      // TODO(cir): Check for volatile return values.
 
       // NOTE(cir): If the function returns, there should always be a valid
       // return value present. Instead of setting the return value here, we
       // should have the ReturnValueSlot object set it beforehand.
       if (!RetVal) {
         RetVal = callOp.getResult(0);
-        DestIsVolatile = false;
+        // TODO(cir): Check for volatile return values.
       }
 
       // An empty record can overlap other data (if declared with
@@ -882,174 +881,6 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   // NOTE(cir): Emissions, lifetime markers, and dtors are handled in CIRGen.
 
   return Ret;
-}
-
-/// Rewrite a call operation arguments to abide to the ABI calling convention.
-///
-/// NOTE(cir): This method has partial parity to CodeGenFunction's
-/// EmitCallArgs method.
-void LowerFunction::rewriteCallArgs(SmallVector<Value> &args, FuncType fnTy,
-                                    OperandRange argRange, FuncOp callee,
-                                    int paramsToSkip, EvaluationOrder order) {
-  SmallVector<Type, 16> argTypes;
-
-  assert((paramsToSkip == 0 || !callee.getNoProto()) &&
-         "Can't skip parameters if type info is not provided");
-
-  // This variable only captures *explicitly* written conventions, not those
-  // applied by default via command line flags or target defaults, such as
-  // thiscall, aapcs, stdcall via -mrtd, etc. Computing that correctly would
-  // require knowing if this is a C++ instance method or being able to see
-  // unprototyped FunctionTypes.
-  clang::CallingConv ExplicitCC = clang::CallingConv::CC_C;
-
-  // First, if a prototype was provided, use those argument types.
-  bool IsVariadic = false;
-  if (!callee.getNoProto()) {
-    if (!MissingFeature::ObjC()) {
-      llvm_unreachable("NYI");
-    } else {
-      IsVariadic = fnTy.isVarArg();
-      // TODO(cir): Override calling convention if necessary.
-      assert(MissingFeature::extParamInfo());
-      argTypes.assign(fnTy.getInputs().begin() + paramsToSkip,
-                      fnTy.getInputs().end());
-    }
-    // NOTE(cir): Skipping some debugging stuff here.
-  }
-
-  for (Value A : llvm::drop_begin(argRange, argTypes.size()))
-    llvm_unreachable("NYI");
-  assert((int)argTypes.size() == (argRange.end() - argRange.begin()));
-
-  // We must evaluate arguments from right to left in the MS C++ ABI,
-  // because arguments are destroyed left to right in the callee. As a special
-  // case, there are certain language constructs that require left-to-right
-  // evaluation, and in those cases we consider the evaluation order
-  // requirement to trump the "destruction order is reverse construction
-  // order" guarantee.
-  bool LeftToRight =
-      LM.getTarget().getCXXABI().areArgsDestroyedLeftToRightInCallee()
-          ? order == EvaluationOrder::ForceLeftToRight
-          : order != EvaluationOrder::ForceRightToLeft;
-
-  if (!MissingFeature::inallocaArgument()) {
-    llvm_unreachable("NYI");
-  }
-
-  // Evaluate each argument in the appropriate order.
-  size_t CallArgsStart = args.size();
-  for (unsigned I = 0, E = argTypes.size(); I != E; ++I) {
-    unsigned Idx = LeftToRight ? I : E - I - 1;
-    auto Arg = argRange.begin() + Idx;
-    unsigned InitialArgSize = args.size();
-    // If *Arg is an ObjCIndirectCopyRestoreExpr, check that either the types
-    // of the argument and parameter match or the objc method is
-    // parameterized.
-    assert(MissingFeature::ObjC());
-    rewriteCallArg(args, *Arg, argTypes[Idx]);
-    // In particular, we depend on it being the last arg in Args, and the
-    // objectsize bits depend on there only being one arg if !LeftToRight.
-    assert(InitialArgSize + 1 == args.size() &&
-           "The code below depends on only adding one arg per EmitCallArg");
-    (void)InitialArgSize;
-    // Since pointer argument are never emitted as LValue, it is safe to emit
-    // non-null argument check for r-value only.
-    // FIXME(cir): Should we handle this non-null arg check here?
-  }
-
-  if (!LeftToRight) {
-    llvm_unreachable("NYI");
-  }
-}
-
-Value LowerFunction::rewriteAggExpr(Value aggregate) {
-  llvm_unreachable("NYI");
-}
-
-Value LowerFunction::rewriteAnyExpr(Value V, bool ignoreResult) {
-  switch (getEvaluationKind(V.getType())) {
-  case TEK_Aggregate:
-    // NOTE(cir): AggTemp creation is ignored here. We're rewriting stuff.
-    // Creation is in CIRGen.
-    return rewriteAggExpr(V);
-  default:
-    llvm::outs() << "Unhandled call argument kind: "
-                 << getEvaluationKind(V.getType()) << "\n";
-    llvm_unreachable("NYI");
-  }
-}
-
-Value LowerFunction::rewriteAnyExprToTemp(Value V) {
-  // NOTE(cir): I'm skipping AggValueSlot here for simplicity, but we might
-  // need to handle that later. Also skipping the aggregate temp creation, as
-  // it is already done in CIRGen.
-  return rewriteAnyExpr(V);
-}
-
-void LowerFunction::rewriteCallArg(SmallVector<Value> &args, Value arg,
-                                   Type argTy) {
-  // NOTE(cir): Ignoring debugging info here. Handle it in CIRGen.
-  if (!MissingFeature::ObjC()) {
-    llvm_unreachable("NYI");
-  }
-
-  if (!MissingFeature::isGLValue()) {
-    llvm_unreachable("NYI");
-  }
-
-  bool hasAggregateEvalKind = hasAggregateEvaluationKind(argTy);
-
-  if (!MissingFeature::MSABI()) {
-    llvm_unreachable("NYI");
-  }
-
-  // FIXME(cir): Skipping some L to RValue cast stuff here. Not sure how to
-  // handle it.
-
-  args.push_back(rewriteAnyExprToTemp(arg));
-}
-
-TypeEvaluationKind LowerFunction::getEvaluationKind(Type type) {
-  // FIXME(cir): Implement type classes for CIR types.
-  if (type.isa<StructType>())
-    return TypeEvaluationKind::TEK_Aggregate;
-
-  llvm_unreachable("NYI");
-}
-
-/// Emit an alloca (or GlobalValue depending on target)
-/// for the specified parameter and set up LocalDeclMap.
-void LowerFunction::buildParmDecl(const BlockArgument D, Value Arg,
-                                  unsigned ArgNo) {
-  // bool NoDebugInfo = false;
-
-  // // TODO(cir): When will Arg be a global?
-  // // TODO(cir): Set the name of the alloca.
-  // assert(!isa<GetGlobalOp>(Arg.getDefiningOp()));
-
-  // Type Ty = D.getType();
-
-  // // Use better IR generation for certain implicit parameters.
-  // if (MissingFeature::implicitParamDecl()) {
-  //   llvm_unreachable("NYI");
-  // }
-
-  // Value DeclPtr = {};
-  // Value AllocaPtr = {};
-  // bool DoStore = false;
-  // assert(MissingFeature::evaluationKind());
-  // bool UseIndirectDebugAddress = false;
-
-  // // If we already have a pointer to the argument, reuse the input pointer.
-  // if (Arg.isIndirect()) {
-  //   DeclPtr = Arg.getIndirectAddress();
-  //   DeclPtr = DeclPtr.withElementType(Ty);
-
-  //   // TODO(cir): needs arg info here.
-  // } else {
-  //   llvm_unreachable("NYI");
-  // }
 }
 
 } // namespace cir

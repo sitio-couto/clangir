@@ -24,6 +24,12 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return
   }
 
+  
+  // cir.func @callVoid() {
+  //   cir.call @Void() : () -> ()
+  //   cir.return
+  // }
+
   // TODO(cir): Missing noundef attributes in some of the following tests.
 
   // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
