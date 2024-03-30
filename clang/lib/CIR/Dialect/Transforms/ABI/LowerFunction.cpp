@@ -604,7 +604,9 @@ void LowerFunction::rewriteCallOp(CallOp op, ReturnValueSlot retValSlot) {
   // NOTE(cir): There is no direct way to fetch the function type from the
   // CallOp, so we fecch it from the source function. The issue is that there is
   // no way to know if said type has already been ABI-lowered.
-  rewriteCallOp(SrcFn.getFunctionType(), SrcFn, op, retValSlot);
+  auto Ret = rewriteCallOp(SrcFn.getFunctionType(), SrcFn, op, retValSlot);
+
+  rewriter.replaceAllUsesWith(op.getResult(0), Ret);
 }
 
 /// Rewrite a call operation to abide to the ABI calling convention.
@@ -662,13 +664,13 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   // all types of calls. Perhaps we should have a CIR interface to mimic this
   // class.
   CallOp CallOrInvoke = {};
-  Value Call =
+  Value CallResult =
       rewriteCallOp(FnInfo, origCallee, callOp, retValSlot, Args, CallOrInvoke,
                     /*isMustTail=*/false, callOp.getLoc());
 
   // NOTE(cir): Skipping debug stuff here.
 
-  return Call;
+  return CallResult;
 }
 
 Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
@@ -829,7 +831,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   // NOTE(cir): Skipping some tail-call, swift, writeback, memory management
   // stuff here.
 
-  // Extract the return value.
+  // Rewrite the return value.
   Value Ret = [&] {
     switch (RetAI.getKind()) {
     case ABIArgInfo::Direct: {
@@ -864,7 +866,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
           RetTy.cast<StructType>().getNumElements() != 0) {
         // NOTE(cir): I'm assuming we don't need to change any offsets here.
         // Value StorePtr = emitAddressAtOffset(*this, RetVal, RetAI);
-        createCoercedValue(CI.getResult(0), RetVal.getType(), *this);
+        RetVal = createCoercedValue(CI.getResult(0), RetVal.getType(), *this);
       }
 
       // NOTE(cir): No need to convert from a temp to an RValue. This is

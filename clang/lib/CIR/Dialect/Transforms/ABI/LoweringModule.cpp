@@ -409,6 +409,9 @@ void LoweringModule::rewriteFunctionCall(CallOp op) {
       SymbolTable::lookupNearestSymbolFrom(op, op.getCalleeAttr()));
 
   LowerFunction(*this, rewriter, callee, op).rewriteCallOp(op);
+
+  // Erase original ABI-agnostic call.
+  rewriter.eraseOp(op);
 }
 
 } // namespace cir
