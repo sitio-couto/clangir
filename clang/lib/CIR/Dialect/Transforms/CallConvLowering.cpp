@@ -69,6 +69,10 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
 
     LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
 
+    // TODO(cir): Instead of re-emmiting loads and stores, just bitcast
+    // arguments and return values to their ABI-specific counterparts.
+    // TODO(cir): We also need to properly replace value uses and erase the old
+    // operations.
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
     return success();
@@ -106,7 +110,10 @@ struct CallConvFuncCallRewrite : public OpRewritePattern<CallOp> {
 
     LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
 
+    // TODO(cir): Use ReturnValueSlot in some way (or remove it for now).
     state.rewriteFunctionCall(op);
+
+    module.dump();
 
     return success();
   }

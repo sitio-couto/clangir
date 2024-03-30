@@ -117,7 +117,13 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
 /// This safely handles the case when the src type is smaller than the
 /// destination type; in this situation the values of bits which not present in
 /// the src are undefined.
-Value createCoercedLoad(Value Src, Type Ty, LowerFunction &CGF) {
+///
+/// NOTE(cir): This method has partial parity with CGCall's CreateCoercedLoad.
+/// Unlike the original codegen, this function does not emit a coerced load
+/// since CIR's type checker wouldn't allow it. Instead, it casts the existing
+/// ABI-agnostic value to it's ABI-aware counterpart. Nevertheless, we should
+/// try to follow the same logic as the original codegen for correctness.
+Value createCoercedValue(Value Src, Type Ty, LowerFunction &CGF) {
   Type SrcTy = Src.getType();
 
   // If SrcTy and Ty are the same, just reuse the exising load.
@@ -213,6 +219,14 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
   }
 
   llvm_unreachable("NYI");
+}
+
+/// Retrieve the alloca that stores the result of a call.
+AllocaOp getResultAlloca(CallOp callOp) {
+  auto result = callOp.getResult(0);
+  assert(result.hasOneUse() && isa<StoreOp>(result.use_begin().getUser()));
+  auto storeOp = cast<StoreOp>(result.use_begin().getUser());
+  return storeOp.getAddr().getDefiningOp<AllocaOp>();
 }
 
 } // namespace
@@ -389,12 +403,6 @@ void LowerFunction::emitFunctionProlog(const LoweringFunctionInfo &FI,
     //   buildParamDecl(Args[I], ArgVals[I], I + 1);
     llvm::errs() << "Skipping buildParamDecl in emitFunctionProlog\n";
   }
-}
-
-static AllocaOp getResultAlloca(ReturnOp retOp) {
-  if (auto loadOp = retOp.getOperand(0).getDefiningOp<LoadOp>())
-    return cast<AllocaOp>(loadOp.getAddr().getDefiningOp());
-  llvm_unreachable("NYI");
 }
 
 void LowerFunction::emitFunctionEpilog(const LoweringFunctionInfo &FI) {
@@ -654,8 +662,9 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   // all types of calls. Perhaps we should have a CIR interface to mimic this
   // class.
   CallOp CallOrInvoke = {};
-  Value Call = rewriteCallOp(FnInfo, origCallee, retValSlot, Args, CallOrInvoke,
-                             /*isMustTail=*/false, callOp.getLoc());
+  Value Call =
+      rewriteCallOp(FnInfo, origCallee, callOp, retValSlot, Args, CallOrInvoke,
+                    /*isMustTail=*/false, callOp.getLoc());
 
   // NOTE(cir): Skipping debug stuff here.
 
@@ -663,7 +672,8 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
 }
 
 Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
-                                   FuncOp Callee, ReturnValueSlot ReturnValue,
+                                   FuncOp Callee, CallOp Caller,
+                                   ReturnValueSlot ReturnValue,
                                    SmallVector<Value> &CallArgs,
                                    CallOp CallOrInvoke, bool isMustTail,
                                    Location loc) {
@@ -693,9 +703,6 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
   // If the call returns a temporary with struct return, create a temporary
   // alloca to hold the result, unless one is given to us.
-  Value SRetPtr = {};
-  Value SRetAlloca = {};
-  Value UnusedReturnSizePtr = nullptr;
   if (RetAI.isIndirect() || RetAI.isCoerceAndExpand() || RetAI.isInAlloca()) {
     llvm_unreachable("NYI");
   }
@@ -732,7 +739,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
       if (!I->getType().isa<StructType>()) {
         llvm_unreachable("NYI");
       } else {
-        // NOTE(cir): I'm leaving L/RValue analisys for CIRGen to handle.
+        // NOTE(cir): I'm leaving L/RValue stuff for CIRGen to handle.
         Src = *I;
       }
 
@@ -748,7 +755,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
       } else {
         // In the simple case, just pass the coerced loaded value.
         assert(NumIRArgs == 1);
-        Value Load = createCoercedLoad(Src, ArgInfo.getCoerceToType(), *this);
+        Value Load = createCoercedValue(Src, ArgInfo.getCoerceToType(), *this);
 
         // FIXME(cir): We should probably handle CMSE non-secure calls here
 
@@ -786,7 +793,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   assert(MissingFeature::vectorType());
 
   // Compute the calling convention and attributes.
-  unsigned CallingConv;
+
   // FIXME(cir): Skipping call attributes for now. Not sure if we have to do
   // this at all since we already do it for the function definition.
 
@@ -798,14 +805,13 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
   // NOTE(cir): Deciding whether to use Call or Invoke is done in CIRGen.
 
-  // Rewrite the actual call instruction.
+  // Rewrite the actual call operation.
   // TODO(cir): Handle other types of CIR calls (e.g. cir.try_call).
   // NOTE(cir): We don't know if the callee was already lowered, so we only
   // fetch the name from the callee, while the return type is fetch from the
   // lowering types manager.
-  auto symRefAttr = rewriter.getAttr<SymbolRefAttr>(Callee.getSymNameAttr());
-  CallOp CI = rewriter.create<CallOp>(loc, symRefAttr, IRFuncTy.getReturnType(),
-                                      IRCallArgs);
+  CallOp CI = rewriter.create<CallOp>(loc, Caller.getCalleeAttr(),
+                                      IRFuncTy.getReturnType(), IRCallArgs);
 
   assert(MissingFeature::vectorType());
 
@@ -839,14 +845,15 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
         llvm_unreachable("NYI");
       }
 
-      Value DestVal = ReturnValue.getValue();
+      // FIXME(cir): Use return value slot here.
+      Value RetVal = callOp.getResult(0);
       bool DestIsVolatile = ReturnValue.isVolatile();
 
       // NOTE(cir): If the function returns, there should always be a valid
       // return value present. Instead of setting the return value here, we
       // should have the ReturnValueSlot object set it beforehand.
-      if (!DestVal) {
-        DestVal = callOp.getResult(0);
+      if (!RetVal) {
+        RetVal = callOp.getResult(0);
         DestIsVolatile = false;
       }
 
@@ -855,13 +862,14 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
       // actual data to store.
       if (RetTy.dyn_cast<StructType>() &&
           RetTy.cast<StructType>().getNumElements() != 0) {
-        Value StorePtr = emitAddressAtOffset(*this, DestVal, RetAI);
-        createCoercedStore(CI.getResult(0), StorePtr, DestIsVolatile, *this);
+        // NOTE(cir): I'm assuming we don't need to change any offsets here.
+        // Value StorePtr = emitAddressAtOffset(*this, RetVal, RetAI);
+        createCoercedValue(CI.getResult(0), RetVal.getType(), *this);
       }
 
       // NOTE(cir): No need to convert from a temp to an RValue. This is
       // done in CIRGen
-      return DestVal;
+      return RetVal;
     }
     default:
       llvm_unreachable("Unhandled ABIArgInfo::Kind");

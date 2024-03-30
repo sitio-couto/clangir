@@ -112,12 +112,16 @@ public:
   /// Rewrite a call operation to abide to the ABI calling convention.
   ///
   /// NOTE(cir): This method has partial parity to CodeGenFunction's
-  /// EmitCall method.
+  /// EmitCall method. A notable difference is that we also pass the call op
+  /// which was already emitted in CIRGen.
   Value rewriteCallOp(FuncType calleeTy, FuncOp origCallee, CallOp callOp,
                       ReturnValueSlot retValSlot, Value Chain = nullptr);
+  // FIXME(cir): We should make LoweringFunctionInfo carry the original
+  // function/call which is being lowered.
   Value rewriteCallOp(const LoweringFunctionInfo &CallInfo, FuncOp Callee,
-                      ReturnValueSlot ReturnValue, SmallVector<Value> &CallArgs,
-                      CallOp CallOrInvoke, bool isMustTail, Location loc);
+                      CallOp Caller, ReturnValueSlot ReturnValue,
+                      SmallVector<Value> &CallArgs, CallOp CallOrInvoke,
+                      bool isMustTail, Location loc);
 
   /// Rewrite a call operation arguments to abide to the ABI calling convention.
   ///

@@ -403,15 +403,12 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
 }
 
 void LoweringModule::rewriteFunctionCall(CallOp op) {
-  llvm::outs() << "Rewriting Call ";
-  op->getName().print(llvm::outs());
+  llvm::outs() << "Rewriting Call " << op.getCallee() << "\n";
 
   FuncOp callee = cast<FuncOp>(
       SymbolTable::lookupNearestSymbolFrom(op, op.getCalleeAttr()));
 
   LowerFunction(*this, rewriter, callee, op).rewriteCallOp(op);
-
-  llvm_unreachable("NYI");
 }
 
 } // namespace cir
