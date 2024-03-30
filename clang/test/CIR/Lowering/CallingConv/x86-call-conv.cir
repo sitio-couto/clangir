@@ -16,7 +16,7 @@
 module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_behavior<undefined>, cir.triple = "x86_64-unknown-linux-gnu", dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<!llvm.ptr<271>, dense<32> : vector<4xi64>>, #dlti.dl_entry<!llvm.ptr<272>, dense<64> : vector<4xi64>>, #dlti.dl_entry<f128, dense<128> : vector<2xi64>>, #dlti.dl_entry<!llvm.ptr<270>, dense<32> : vector<4xi64>>, #dlti.dl_entry<f16, dense<16> : vector<2xi64>>, #dlti.dl_entry<f64, dense<64> : vector<2xi64>>, #dlti.dl_entry<i32, dense<32> : vector<2xi64>>, #dlti.dl_entry<i16, dense<16> : vector<2xi64>>, #dlti.dl_entry<i8, dense<8> : vector<2xi64>>, #dlti.dl_entry<i1, dense<8> : vector<2xi64>>, #dlti.dl_entry<!llvm.ptr, dense<64> : vector<4xi64>>, #dlti.dl_entry<f80, dense<128> : vector<2xi64>>, #dlti.dl_entry<i128, dense<128> : vector<2xi64>>, #dlti.dl_entry<i64, dense<64> : vector<2xi64>>, #dlti.dl_entry<"dlti.endianness", "little">, #dlti.dl_entry<"dlti.stack_alignment", 128 : i64>>, llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"} {
 
 //===----------------------------------------------------------------------===//
-// Test trivial call conv lowering scenarios.
+// Test trivial function definition call conv lowering scenarios.
 //===----------------------------------------------------------------------===//
 
   // CHECK: @Void()
@@ -100,28 +100,46 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 
   // TODO(cir): Support struct types coercion.
 
+//===----------------------------------------------------------------------===//
+// Test trivial function call calling convention lowering scenarios.
+//===----------------------------------------------------------------------===//
+
+
 
 //===----------------------------------------------------------------------===//
-// Test call conv struct types coercion.
+// Test calling convention struct types coercion.
+//
+// These test validate arguments and return values that consist of structs are
+// properly casted to ABI-specific types in function definitions and calls.
 //===----------------------------------------------------------------------===//
 
-  cir.func @coerceStructToI64(%arg0: !ty_22CoerceToI6422) -> !ty_22CoerceToI6422 {
+  // CHECK: cir.func @testCoerceStructToI64
+  cir.func @testCoerceStructToI64(%arg0: !ty_22CoerceToI6422) -> !ty_22CoerceToI6422 {
     // CHECK: %[[#V0:]] = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22CoerceToI6422
     // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
     %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["s", init] {alignment = 4 : i64}
     %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["__retval"] {alignment = 4 : i64}
     cir.store %arg0, %0 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    %2 = cir.get_member %1[0] {name = "a"} : !cir.ptr<!ty_22CoerceToI6422> -> !cir.ptr<!s32i>
-    %3 = cir.const(#cir.int<1> : !s32i) : !s32i
-    cir.store %3, %2 : !s32i, cir.ptr <!s32i>
-    %4 = cir.get_member %1[1] {name = "b"} : !cir.ptr<!ty_22CoerceToI6422> -> !cir.ptr<!s32i>
-    %5 = cir.const(#cir.int<2> : !s32i) : !s32i
-    cir.store %5, %4 : !s32i, cir.ptr <!s32i>
     %6 = cir.load %1 : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
     // CHECK: %[[#V8:]] = cir.cast(bitcast, %{{.+}} : !ty_22CoerceToI6422), !u64i
     // CHECK: cir.return %[[#V8]] : !u64i
     cir.return %6 : !ty_22CoerceToI6422
+  }
+
+  // CHECK: cir.func @testCallToCoerceStructToI64
+  cir.func @testCallToCoerceStructToI64() {
+    %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["arg"] {alignment = 4 : i64}
+    %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["ret"] {alignment = 4 : i64}
+    // CHECK: %[[#V2:]] = cir.load %[[#V0]] : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
+    %3 = cir.load %0 : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
+    // CHECK: %[[#V3:]] = cir.cast(bitcast, %[[#V2]] : !ty_22CoerceToI6422), !u64i
+    // CHECK: %[[#V4:]] = cir.call @testCoerceStructToI64(%[[#V3]]) : (!u64i) -> !u64i
+    // CHECK: %[[#V5:]] = cir.cast(bitcast, %[[#V4]] : !u64i), !ty_22CoerceToI6422
+    %4 = cir.call @testCoerceStructToI64(%3) : (!ty_22CoerceToI6422) -> !ty_22CoerceToI6422
+    // CHECK: cir.store %[[#V5]], %[[#V1]] : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
+    cir.store %4, %1 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
+    cir.return
   }
 
 } // module.
