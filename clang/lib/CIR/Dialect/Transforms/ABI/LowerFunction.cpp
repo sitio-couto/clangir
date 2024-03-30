@@ -674,7 +674,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   Type RetTy = CallInfo.getReturnType();
   const ABIArgInfo &RetAI = CallInfo.getReturnInfo();
 
-  Type IRFuncTy = LM.getTypes().getFunctionType(CallInfo);
+  FuncType IRFuncTy = LM.getTypes().getFunctionType(CallInfo);
 
   // NOTE(cir): Some target/ABI related checks happen here. I'm skipping them
   // under the assumption that they are handled in CIRGen.
@@ -800,8 +800,12 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
   // Rewrite the actual call instruction.
   // TODO(cir): Handle other types of CIR calls (e.g. cir.try_call).
-  // FIXME(cir): How can we ensure the Callee has been lowered to the ABI?
-  CallOp CI = rewriter.create<CallOp>(loc, Callee, IRCallArgs);
+  // NOTE(cir): We don't know if the callee was already lowered, so we only
+  // fetch the name from the callee, while the return type is fetch from the
+  // lowering types manager.
+  auto symRefAttr = rewriter.getAttr<SymbolRefAttr>(Callee.getSymNameAttr());
+  CallOp CI = rewriter.create<CallOp>(loc, symRefAttr, IRFuncTy.getReturnType(),
+                                      IRCallArgs);
 
   assert(MissingFeature::vectorType());
 
