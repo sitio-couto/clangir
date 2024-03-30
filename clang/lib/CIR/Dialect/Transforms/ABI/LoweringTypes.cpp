@@ -1,4 +1,5 @@
 #include "LoweringTypes.h"
+#include "LoweringCall.h"
 #include "LoweringFunctionInfo.h"
 #include "LoweringModule.h"
 #include "MissingFeature.h"
@@ -81,11 +82,12 @@ arrangeFreeFunctionLikeCall(LoweringTypes &CGT, LoweringModule &CGM,
   // I'm skipping it since it requires CodeGen info. Maybe we can embbed this
   // information in the FuncOp during CIRGen.
 
-  // NOTE(cir):
-  SmallVector<Type, 16> argTypes;
-  // for (Value arg : args)
-  //   argTypes.push_back(arg.getType());
-  llvm_unreachable("NYI");
+  // NOTE(cir): There would be a loop here to get the canonical form of each AST
+  // arg, but this is not necessary in CIR right now.
+  assert(MissingFeature::chainCall() && !chainCall && "NYI");
+  FnInfoOpts opts = chainCall ? FnInfoOpts::IsChainCall : FnInfoOpts::None;
+  return CGT.arrangeLLVMFunctionInfo(fnType.getReturnType(), opts,
+                                     fnType.getInputs(), required);
 }
 
 } // namespace
@@ -139,12 +141,11 @@ LoweringTypes::arrangeFunctionDeclaration(FuncOp FD) {
 /// type using the given arguments.  The arguments are necessary
 /// because the function might be unprototyped, in which case it's
 /// target-dependent in crazy ways.
-const LoweringFunctionInfo &LoweringTypes::arrangeFreeFunctionCall(
-    const OperandRange args, const FuncType fnType, bool chainCall) {
-  // return arrangeFreeFunctionLikeCall(*this, LM, args, fnType, chainCall ? 1 :
-  // 0,
-  //                                    chainCall);
-  llvm_unreachable("NYI");
+const LoweringFunctionInfo &
+LoweringTypes::arrangeFreeFunctionCall(const OperandRange args,
+                                       const FuncType fnType, bool chainCall) {
+  return arrangeFreeFunctionLikeCall(*this, LM, args, fnType, chainCall ? 1 : 0,
+                                     chainCall);
 }
 
 const LoweringFunctionInfo &LoweringTypes::arrangeGlobalDeclaration(FuncOp GD) {

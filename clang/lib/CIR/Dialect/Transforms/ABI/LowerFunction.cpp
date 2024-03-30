@@ -151,7 +151,7 @@ Value createCoercedLoad(Value Src, Type Ty, LowerFunction &CGF) {
     // FIXME: Assert that we aren't truncating non-padding bits when have access
     // to that information.
     // Src = Src.withElementType();
-    return CGF.buildAggregateLoad(Src, Ty);
+    return CGF.buildAggregateBitcast(Src, Ty);
   }
 
   llvm_unreachable("NYI");
@@ -560,9 +560,8 @@ void LowerFunction::buildAggregateStore(Value Val, Value Dest,
   rewriter.create<StoreOp>(Val.getLoc(), Val, Dest);
 }
 
-Value LowerFunction::buildAggregateLoad(Value Val, Type DestTy) {
-  Val = rewriter.create<CastOp>(Val.getLoc(), DestTy, CastKind::bitcast, Val);
-  return rewriter.create<LoadOp>(Val.getLoc(), Val);
+Value LowerFunction::buildAggregateBitcast(Value Val, Type DestTy) {
+  return rewriter.create<CastOp>(Val.getLoc(), DestTy, CastKind::bitcast, Val);
 }
 
 void LowerFunction::buildBooleanStore(Value Val, Value Dest) {
@@ -619,11 +618,8 @@ Value LowerFunction::rewriteCallOp(FuncType calleeTy, FuncOp origCallee,
   if (!MissingFeature::isCXXOperatorCall())
     llvm_unreachable("NYI");
 
-  // FIXME(cir): This is wrong. This stack is pairing the emission of the
-  // ABI-agnostic arguments into SSA values, which is already done by CIRGen.
-  // What we should copy here is the emission of the ABI-specific function call.
-  // rewriteCallArgs(Args, calleeTy, callOp.getArgOperands(), origCallee,
-  //                 /*ParamsToSkip=*/0, order);
+  // NOTE(cir): Call args were already emitted in CIRGen. Just fetch them here.
+  Args = callOp.getArgOperands();
 
   const LoweringFunctionInfo &FnInfo = LM.getTypes().arrangeFreeFunctionCall(
       callOp.getArgOperands(), calleeTy, /*chainCall=*/false);
@@ -771,7 +767,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
     // NOTE(cir): We don't need the callee func ptr here.
 
-    if (ArgMemory || MissingFeature::inallocaArgument()) {
+    if (ArgMemory || !MissingFeature::inallocaArgument()) {
       llvm_unreachable("NYI");
     }
 
@@ -843,9 +839,11 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
       bool DestIsVolatile = ReturnValue.isVolatile();
 
       // NOTE(cir): If the function returns, there should always be a valid
-      // return value present.
+      // return value present. Instead of setting the return value here, we
+      // should have the ReturnValueSlot object set it beforehand.
       if (!DestVal) {
-        llvm_unreachable("NYI");
+        DestVal = callOp.getResult(0);
+        DestIsVolatile = false;
       }
 
       // An empty record can overlap other data (if declared with

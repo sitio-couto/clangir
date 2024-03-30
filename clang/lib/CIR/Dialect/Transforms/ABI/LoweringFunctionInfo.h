@@ -145,7 +145,7 @@ public:
 
   Kind getKind() const { return kind; }
   bool isDirect() const { return kind == Direct; }
-  bool isInAlloca() const { llvm_unreachable("NYI"); }
+  bool isInAlloca() const { return kind == InAlloca; }
   bool isExtend() const { return kind == Extend; }
   bool isIndirect() const { return kind == Indirect; }
   bool isIndirectAliased() const { return kind == IndirectAliased; }

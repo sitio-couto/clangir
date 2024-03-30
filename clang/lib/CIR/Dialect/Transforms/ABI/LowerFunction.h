@@ -98,8 +98,9 @@ public:
   // allocated boolean value address.
   void buildBooleanStore(Value Val, Value Dest);
 
-  // Emit a simple bitcasted for a possible coerced aggregate type.
-  Value buildAggregateLoad(Value Val, Type DestTy);
+  // Emit a simple bitcast for a coerced aggregate type to convert it from an
+  // ABI-agnostic to an ABI-aware type.
+  Value buildAggregateBitcast(Value Val, Type DestTy);
 
   /// Rewrite a call operation to abide to the ABI calling convention.
   ///
