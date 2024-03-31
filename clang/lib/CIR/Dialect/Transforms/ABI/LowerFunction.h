@@ -113,6 +113,9 @@ public:
                       SmallVector<Value> &CallArgs, CallOp CallOrInvoke,
                       bool isMustTail, Location loc);
 
+  /// Get an appropriate 'undef' value for the given type.
+  Value getUndefRValue(Type Ty);
+
   /// Return the TypeEvaluationKind of Type \c T.
   static TypeEvaluationKind getEvaluationKind(Type T);
 };

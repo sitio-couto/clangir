@@ -72,6 +72,7 @@ struct MissingFeature {
   static bool isReferenceType() { return true; }
   static bool fixedWidthIntegers() { return true; }
   static bool argUndefAttr() { return true; }
+  static bool noReturnAttr() { return true; }
 
   // Abstraction to be created in CIR (not necessarily through interfaces).
   static bool fieldDeclAbs() { return true; } // Record field of any type.

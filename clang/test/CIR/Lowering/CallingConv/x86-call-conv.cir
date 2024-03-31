@@ -24,11 +24,11 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return
   }
 
-  
-  // cir.func @callVoid() {
-  //   cir.call @Void() : () -> ()
-  //   cir.return
-  // }
+  // CHECK: @callVoid()
+  cir.func @callVoid() {
+    cir.call @Void() : () -> ()
+    cir.return
+  }
 
   // TODO(cir): Missing noundef attributes in some of the following tests.
 
@@ -37,47 +37,47 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u8i
   }
 
-  // CHECK: cir.func @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
+  // CHECK: @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
   cir.func @UShort(%arg0: !u16i) -> !u16i {
     cir.return %arg0 : !u16i
   }
 
-  // CHECK: cir.func @UInt(%arg0: !u32i) -> !u32i
+  // CHECK: @UInt(%arg0: !u32i) -> !u32i
   cir.func @UInt(%arg0: !u32i) -> !u32i {
     cir.return %arg0 : !u32i
   }
 
-  // CHECK: cir.func @ULong(%arg0: !u64i) -> !u64i
+  // CHECK: @ULong(%arg0: !u64i) -> !u64i
   cir.func @ULong(%arg0: !u64i) -> !u64i {
     cir.return %arg0 : !u64i
   }
 
-  // CHECK: cir.func @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
+  // CHECK: @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
   cir.func @SChar(%arg0: !s8i) -> !s8i {
     cir.return %arg0 : !s8i
   }
 
-  // CHECK: cir.func @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
+  // CHECK: @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
   cir.func @SShort(%arg0: !s16i) -> !s16i {
     cir.return %arg0 : !s16i
   }
 
-  // CHECK: cir.func @SInt(%arg0: !s32i) -> !s32i
+  // CHECK: @SInt(%arg0: !s32i) -> !s32i
   cir.func @SInt(%arg0: !s32i) -> !s32i {
     cir.return %arg0 : !s32i
   }
 
-  // CHECK: cir.func @SLong(%arg0: !s64i) -> !s64i
+  // CHECK: @SLong(%arg0: !s64i) -> !s64i
   cir.func @SLong(%arg0: !s64i) -> !s64i {
     cir.return %arg0 : !s64i
   }
 
-  // CHECK: cir.func @Float(%arg0: f32) -> f32
+  // CHECK: @Float(%arg0: f32) -> f32
   cir.func @Float(%arg0: f32) -> f32 {
     cir.return %arg0 : f32
   }
 
-  // CHECK: cir.func @Double(%arg0: f64) -> f64
+  // CHECK: @Double(%arg0: f64) -> f64
   cir.func @Double(%arg0: f64) -> f64 {
     cir.return %arg0 : f64
   }
@@ -119,7 +119,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // properly casted to ABI-specific types in function definitions and calls.
 //===----------------------------------------------------------------------===//
 
-  // CHECK: cir.func @testCoerceStructToI64
+  // CHECK: @testCoerceStructToI64
   cir.func @testCoerceStructToI64(%arg0: !ty_22CoerceToI6422) -> !ty_22CoerceToI6422 {
     // CHECK: %[[#V0:]] = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22CoerceToI6422
@@ -133,7 +133,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %6 : !ty_22CoerceToI6422
   }
 
-  // CHECK: cir.func @testCallToCoerceStructToI64
+  // CHECK: @testCallToCoerceStructToI64
   cir.func @testCallToCoerceStructToI64() {
     %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["arg"] {alignment = 4 : i64}
     %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["ret"] {alignment = 4 : i64}

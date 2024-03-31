@@ -598,7 +598,9 @@ void LowerFunction::rewriteCallOp(CallOp op, ReturnValueSlot retValSlot) {
   // no way to know if said type has already been ABI-lowered.
   auto Ret = rewriteCallOp(SrcFn.getFunctionType(), SrcFn, op, retValSlot);
 
-  rewriter.replaceAllUsesWith(op.getResult(0), Ret);
+  // Replace the original call result with the new one.
+  if (Ret)
+    rewriter.replaceAllUsesWith(op.getResult(0), Ret);
 }
 
 /// Rewrite a call operation to abide to the ABI calling convention.
@@ -818,7 +820,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
   // If the call doesn't return, there is no need to translate the ABI-agnostic
   // return value to its ABI-aware counterpart.
-  if (CI->getNumResults() == 0) {
+  if (!MissingFeature::noReturnAttr()) {
     llvm_unreachable("NYI");
   }
 
@@ -831,7 +833,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
     case ABIArgInfo::Ignore:
       // If we are ignoring an argument that had a result, make sure to
       // construct the appropriate return value for our caller.
-      return Value{};
+      return getUndefRValue(RetTy);
 
     case ABIArgInfo::Direct: {
       Type RetIRTy = RetTy;
@@ -881,6 +883,14 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   // NOTE(cir): Emissions, lifetime markers, and dtors are handled in CIRGen.
 
   return Ret;
+}
+
+Value LowerFunction::getUndefRValue(Type Ty) {
+  if (Ty.isa<VoidType>())
+    return nullptr;
+
+  llvm::outs() << "Missing undef handler for value type: " << Ty << "\n";
+  llvm_unreachable("NYI");
 }
 
 } // namespace cir
