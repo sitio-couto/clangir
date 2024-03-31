@@ -211,7 +211,7 @@ void LoweringModule::constructAttributeList(
     // sense to do it here because parameters are so messed up.
     switch (AI.getKind()) {
     case ABIArgInfo::Extend:
-      if (RetAI.isSignExt())
+      if (AI.isSignExt())
         Attrs.push_back(
             rewriter.getNamedAttr("cir.signext", rewriter.getUnitAttr()));
       else
