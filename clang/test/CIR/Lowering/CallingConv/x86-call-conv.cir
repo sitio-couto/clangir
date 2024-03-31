@@ -30,11 +30,19 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return
   }
 
-  // TODO(cir): Missing noundef attributes in some of the following tests.
+  // TODO(cir): Missing noundef attributes in some cases.
+  // TODO(cir): Calls do not have return and argument attributes.
 
   // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
   cir.func @UChar(%arg0: !u8i) -> !u8i {
     cir.return %arg0 : !u8i
+  }
+
+  // CHECK: @callUChar
+  cir.func @callUChar() {
+    %0 = cir.const(#cir.int<1> : !u8i) : !u8i
+    %1 = cir.call @UChar(%0) : (!u8i) -> !u8i
+    cir.return
   }
 
   // CHECK: @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
@@ -42,9 +50,23 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u16i
   }
 
+  // CHECK: @callUShort
+  cir.func @callUShort() {
+    %0 = cir.const(#cir.int<1> : !u16i) : !u16i
+    %1 = cir.call @UShort(%0) : (!u16i) -> !u16i
+    cir.return
+  }
+
   // CHECK: @UInt(%arg0: !u32i) -> !u32i
   cir.func @UInt(%arg0: !u32i) -> !u32i {
     cir.return %arg0 : !u32i
+  }
+
+  // CHECK: @callUInt
+  cir.func @callUInt() {
+    %0 = cir.const(#cir.int<1> : !u32i) : !u32i
+    %1 = cir.call @UInt(%0) : (!u32i) -> !u32i
+    cir.return
   }
 
   // CHECK: @ULong(%arg0: !u64i) -> !u64i
@@ -52,9 +74,23 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !u64i
   }
 
+  // CHECK: @callULong
+  cir.func @callULong() {
+    %0 = cir.const(#cir.int<1> : !u64i) : !u64i
+    %1 = cir.call @ULong(%0) : (!u64i) -> !u64i
+    cir.return
+  }
+
   // CHECK: @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
   cir.func @SChar(%arg0: !s8i) -> !s8i {
     cir.return %arg0 : !s8i
+  }
+
+  // CHECK: @callSChar
+  cir.func @callSChar() {
+    %0 = cir.const(#cir.int<1> : !s8i) : !s8i
+    %1 = cir.call @SChar(%0) : (!s8i) -> !s8i
+    cir.return
   }
 
   // CHECK: @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
@@ -62,14 +98,35 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : !s16i
   }
 
+  // CHECK: @callSShort
+  cir.func @callSShort() {
+    %0 = cir.const(#cir.int<1> : !s16i) : !s16i
+    %1 = cir.call @SShort(%0) : (!s16i) -> !s16i
+    cir.return
+  }
+
   // CHECK: @SInt(%arg0: !s32i) -> !s32i
   cir.func @SInt(%arg0: !s32i) -> !s32i {
     cir.return %arg0 : !s32i
   }
 
+  // CHECK: @callSInt
+  cir.func @callSInt() {
+    %0 = cir.const(#cir.int<1> : !s32i) : !s32i
+    %1 = cir.call @SInt(%0) : (!s32i) -> !s32i
+    cir.return
+  }
+
   // CHECK: @SLong(%arg0: !s64i) -> !s64i
   cir.func @SLong(%arg0: !s64i) -> !s64i {
     cir.return %arg0 : !s64i
+  }
+
+  // CHECK: @callSLong
+  cir.func @callSLong() {
+    %0 = cir.const(#cir.int<1> : !s64i) : !s64i
+    %1 = cir.call @SLong(%0) : (!s64i) -> !s64i
+    cir.return
   }
 
   // CHECK: @Float(%arg0: f32) -> f32

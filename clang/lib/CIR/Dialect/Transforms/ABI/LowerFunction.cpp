@@ -725,11 +725,35 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
     std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
 
     switch (ArgInfo.getKind()) {
+    case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       if (!isa<StructType>(ArgInfo.getCoerceToType()) &&
           ArgInfo.getCoerceToType() == info_it->type &&
           ArgInfo.getDirectOffset() == 0) {
-        llvm_unreachable("NYI");
+        assert(NumIRArgs == 1);
+        Value V;
+        if (!I->getType().isa<StructType>()) {
+          V = *I;
+        } else {
+          llvm_unreachable("NYI");
+        }
+
+        if (!MissingFeature::extParamInfo()) {
+          llvm_unreachable("NYI");
+        }
+
+        if (ArgInfo.getCoerceToType() != V.getType() &&
+            V.getType().isa<IntType>())
+          llvm_unreachable("NYI");
+
+        if (FirstIRArg < IRFuncTy.getNumInputs() &&
+            V.getType() != IRFuncTy.getInput(FirstIRArg))
+          llvm_unreachable("NYI");
+
+        if (!MissingFeature::argUndefAttr())
+          llvm_unreachable("NYI");
+        IRCallArgs[FirstIRArg] = V;
+        break;
       }
 
       // FIXME: Avoid the conversion through memory if possible.
@@ -835,10 +859,22 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
       // construct the appropriate return value for our caller.
       return getUndefRValue(RetTy);
 
+    case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       Type RetIRTy = RetTy;
       if (RetAI.getCoerceToType() == RetIRTy && RetAI.getDirectOffset() == 0) {
-        llvm_unreachable("NYI");
+        switch (getEvaluationKind(RetTy)) {
+        case TEK_Scalar: {
+          // If the argument doesn't match, perform a bitcast to coerce it. This
+          // can happen due to trivial type mismatches.
+          Value V = CI.getResult(0);
+          if (V.getType() != RetIRTy)
+            llvm_unreachable("NYI");
+          return V;
+        }
+        default:
+          llvm_unreachable("NYI");
+        }
       }
 
       // If coercing a fixed vector from a scalable vector for ABI
@@ -890,6 +926,15 @@ Value LowerFunction::getUndefRValue(Type Ty) {
     return nullptr;
 
   llvm::outs() << "Missing undef handler for value type: " << Ty << "\n";
+  llvm_unreachable("NYI");
+}
+
+TypeEvaluationKind LowerFunction::getEvaluationKind(Type type) {
+  // FIXME(cir): Implement type classes for CIR types.
+  if (type.isa<StructType>())
+    return TypeEvaluationKind::TEK_Aggregate;
+  if (type.isa<IntType>())
+    return TypeEvaluationKind::TEK_Scalar;
   llvm_unreachable("NYI");
 }
 

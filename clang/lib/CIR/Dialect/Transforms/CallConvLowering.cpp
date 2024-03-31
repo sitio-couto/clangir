@@ -73,6 +73,7 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
     // arguments and return values to their ABI-specific counterparts.
     // TODO(cir): We also need to properly replace value uses and erase the old
     // operations.
+    // TODO(cir): Fix arguments & return val attributes printing/parsing.
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
 
     return success();
