@@ -2717,7 +2717,8 @@ def CallOp : CIR_CallOp<"call"> {
               CArg<"ValueRange", "{}">:$operands), [{
       $_state.addOperands(operands);
       $_state.addAttribute("callee", callee);
-      $_state.addTypes(resType);
+      if (resType && !resType.isa<VoidType>())
+        $_state.addTypes(resType);
     }]>,
     OpBuilder<(ins "SymbolRefAttr":$callee,
               CArg<"ValueRange", "{}">:$operands), [{
