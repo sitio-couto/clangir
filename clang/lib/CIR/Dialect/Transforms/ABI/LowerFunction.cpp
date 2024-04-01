@@ -933,7 +933,7 @@ TypeEvaluationKind LowerFunction::getEvaluationKind(Type type) {
   // FIXME(cir): Implement type classes for CIR types.
   if (type.isa<StructType>())
     return TypeEvaluationKind::TEK_Aggregate;
-  if (type.isa<IntType>())
+  if (type.isa<IntType, FloatType>())
     return TypeEvaluationKind::TEK_Scalar;
   llvm_unreachable("NYI");
 }

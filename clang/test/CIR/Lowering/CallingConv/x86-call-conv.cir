@@ -134,9 +134,23 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %arg0 : f32
   }
 
+  // CHECK: @callFloat
+  cir.func @callFloat() {
+    %0 = cir.const(1.000000e+00 : f32) : f32
+    %1 = cir.call @Float(%0) : (f32) -> f32
+    cir.return
+  }
+
   // CHECK: @Double(%arg0: f64) -> f64
   cir.func @Double(%arg0: f64) -> f64 {
     cir.return %arg0 : f64
+  }
+
+  // CHECK: @callDouble
+  cir.func @callDouble() {
+    %0 = cir.const(1.000000e+00 : f64) : f64
+    %1 = cir.call @Double(%0) : (f64) -> f64
+    cir.return
   }
 
   // CHECK: @Bool(%arg0: !u1i {cir.zeroext}) -> (!u1i {cir.zeroext})
