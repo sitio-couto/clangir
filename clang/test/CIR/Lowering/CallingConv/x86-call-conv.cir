@@ -10,22 +10,17 @@
 !u32i = !cir.int<u, 32>
 !u64i = !cir.int<u, 64>
 
-!ty_22CoerceToI6422 = !cir.struct<struct "CoerceToI64" {!cir.int<s, 32>, !cir.int<s, 32>}>
+!StructToI64 = !cir.struct<struct "StructToI64" {!cir.int<s, 32>, !cir.int<s, 32>}>
 
 // Set triple and data layout to X86-64.
 module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_behavior<undefined>, cir.triple = "x86_64-unknown-linux-gnu", dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<!llvm.ptr<271>, dense<32> : vector<4xi64>>, #dlti.dl_entry<!llvm.ptr<272>, dense<64> : vector<4xi64>>, #dlti.dl_entry<f128, dense<128> : vector<2xi64>>, #dlti.dl_entry<!llvm.ptr<270>, dense<32> : vector<4xi64>>, #dlti.dl_entry<f16, dense<16> : vector<2xi64>>, #dlti.dl_entry<f64, dense<64> : vector<2xi64>>, #dlti.dl_entry<i32, dense<32> : vector<2xi64>>, #dlti.dl_entry<i16, dense<16> : vector<2xi64>>, #dlti.dl_entry<i8, dense<8> : vector<2xi64>>, #dlti.dl_entry<i1, dense<8> : vector<2xi64>>, #dlti.dl_entry<!llvm.ptr, dense<64> : vector<4xi64>>, #dlti.dl_entry<f80, dense<128> : vector<2xi64>>, #dlti.dl_entry<i128, dense<128> : vector<2xi64>>, #dlti.dl_entry<i64, dense<64> : vector<2xi64>>, #dlti.dl_entry<"dlti.endianness", "little">, #dlti.dl_entry<"dlti.stack_alignment", 128 : i64>>, llvm.data_layout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"} {
 
 //===----------------------------------------------------------------------===//
-// Test trivial function definition call conv lowering scenarios.
+// Test trivial function call and definition call conv lowering scenarios.
 //===----------------------------------------------------------------------===//
 
   // CHECK: @Void()
   cir.func @Void() {
-    cir.return
-  }
-
-  // CHECK: @callVoid()
-  cir.func @callVoid() {
     cir.call @Void() : () -> ()
     cir.return
   }
@@ -35,123 +30,67 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 
   // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
   cir.func @UChar(%arg0: !u8i) -> !u8i {
-    cir.return %arg0 : !u8i
-  }
-
-  // CHECK: @callUChar
-  cir.func @callUChar() {
-    %0 = cir.const(#cir.int<1> : !u8i) : !u8i
-    %1 = cir.call @UChar(%0) : (!u8i) -> !u8i
-    cir.return
+    %0 = cir.call @UChar(%arg0) : (!u8i) -> !u8i
+    cir.return %0 : !u8i
   }
 
   // CHECK: @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
   cir.func @UShort(%arg0: !u16i) -> !u16i {
-    cir.return %arg0 : !u16i
-  }
-
-  // CHECK: @callUShort
-  cir.func @callUShort() {
-    %0 = cir.const(#cir.int<1> : !u16i) : !u16i
-    %1 = cir.call @UShort(%0) : (!u16i) -> !u16i
-    cir.return
+    %0 = cir.call @UShort(%arg0) : (!u16i) -> !u16i
+    cir.return %0 : !u16i
   }
 
   // CHECK: @UInt(%arg0: !u32i) -> !u32i
   cir.func @UInt(%arg0: !u32i) -> !u32i {
-    cir.return %arg0 : !u32i
-  }
-
-  // CHECK: @callUInt
-  cir.func @callUInt() {
-    %0 = cir.const(#cir.int<1> : !u32i) : !u32i
-    %1 = cir.call @UInt(%0) : (!u32i) -> !u32i
-    cir.return
+    %0 = cir.call @UInt(%arg0) : (!u32i) -> !u32i
+    cir.return %0 : !u32i 
   }
 
   // CHECK: @ULong(%arg0: !u64i) -> !u64i
   cir.func @ULong(%arg0: !u64i) -> !u64i {
-    cir.return %arg0 : !u64i
-  }
-
-  // CHECK: @callULong
-  cir.func @callULong() {
-    %0 = cir.const(#cir.int<1> : !u64i) : !u64i
-    %1 = cir.call @ULong(%0) : (!u64i) -> !u64i
-    cir.return
+    %0 = cir.call @ULong(%arg0) : (!u64i) -> !u64i
+    cir.return %0 : !u64i
   }
 
   // CHECK: @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
   cir.func @SChar(%arg0: !s8i) -> !s8i {
-    cir.return %arg0 : !s8i
-  }
-
-  // CHECK: @callSChar
-  cir.func @callSChar() {
-    %0 = cir.const(#cir.int<1> : !s8i) : !s8i
-    %1 = cir.call @SChar(%0) : (!s8i) -> !s8i
-    cir.return
+    %0 = cir.call @SChar(%arg0) : (!s8i) -> !s8i
+    cir.return %0 : !s8i
   }
 
   // CHECK: @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
   cir.func @SShort(%arg0: !s16i) -> !s16i {
-    cir.return %arg0 : !s16i
-  }
-
-  // CHECK: @callSShort
-  cir.func @callSShort() {
-    %0 = cir.const(#cir.int<1> : !s16i) : !s16i
-    %1 = cir.call @SShort(%0) : (!s16i) -> !s16i
-    cir.return
+    %0 = cir.call @SShort(%arg0) : (!s16i) -> !s16i
+    cir.return %0 : !s16i
   }
 
   // CHECK: @SInt(%arg0: !s32i) -> !s32i
   cir.func @SInt(%arg0: !s32i) -> !s32i {
-    cir.return %arg0 : !s32i
-  }
-
-  // CHECK: @callSInt
-  cir.func @callSInt() {
-    %0 = cir.const(#cir.int<1> : !s32i) : !s32i
-    %1 = cir.call @SInt(%0) : (!s32i) -> !s32i
-    cir.return
+    %0 = cir.call @SInt(%arg0) : (!s32i) -> !s32i
+    cir.return %0 : !s32i
   }
 
   // CHECK: @SLong(%arg0: !s64i) -> !s64i
   cir.func @SLong(%arg0: !s64i) -> !s64i {
-    cir.return %arg0 : !s64i
-  }
-
-  // CHECK: @callSLong
-  cir.func @callSLong() {
-    %0 = cir.const(#cir.int<1> : !s64i) : !s64i
-    %1 = cir.call @SLong(%0) : (!s64i) -> !s64i
-    cir.return
+    %0 = cir.call @SLong(%arg0) : (!s64i) -> !s64i
+    cir.return %0 : !s64i
   }
 
   // CHECK: @Float(%arg0: f32) -> f32
   cir.func @Float(%arg0: f32) -> f32 {
-    cir.return %arg0 : f32
-  }
-
-  // CHECK: @callFloat
-  cir.func @callFloat() {
-    %0 = cir.const(1.000000e+00 : f32) : f32
-    %1 = cir.call @Float(%0) : (f32) -> f32
-    cir.return
+    %0 = cir.call @Float(%arg0) : (f32) -> f32
+    cir.return %0 : f32
   }
 
   // CHECK: @Double(%arg0: f64) -> f64
   cir.func @Double(%arg0: f64) -> f64 {
-    cir.return %arg0 : f64
+    %0 = cir.call @Double(%arg0) : (f64) -> f64
+    cir.return %0 : f64
   }
 
-  // CHECK: @callDouble
-  cir.func @callDouble() {
-    %0 = cir.const(1.000000e+00 : f64) : f64
-    %1 = cir.call @Double(%0) : (f64) -> f64
-    cir.return
-  }
+  // NOTE(cir): Since we have a ABI-agnostic representation for bool, it requires
+  // a bit more work to lower it than the other trivial cases which are already
+  // lowered as ABI-speicifc types, albeit without attributes.
 
   // CHECK: @Bool(%arg0: !u1i {cir.zeroext}) -> (!u1i {cir.zeroext})
   cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
@@ -194,33 +133,24 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // properly casted to ABI-specific types in function definitions and calls.
 //===----------------------------------------------------------------------===//
 
-  // CHECK: @testCoerceStructToI64
-  cir.func @testCoerceStructToI64(%arg0: !ty_22CoerceToI6422) -> !ty_22CoerceToI6422 {
-    // CHECK: %[[#V0:]] = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22CoerceToI6422
-    // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["s", init] {alignment = 4 : i64}
-    %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["__retval"] {alignment = 4 : i64}
-    cir.store %arg0, %0 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    %6 = cir.load %1 : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
-    // CHECK: %[[#V8:]] = cir.cast(bitcast, %{{.+}} : !ty_22CoerceToI6422), !u64i
-    // CHECK: cir.return %[[#V8]] : !u64i
-    cir.return %6 : !ty_22CoerceToI6422
-  }
-
-  // CHECK: @testCallToCoerceStructToI64
-  cir.func @testCallToCoerceStructToI64() {
-    %0 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["arg"] {alignment = 4 : i64}
-    %1 = cir.alloca !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>, ["ret"] {alignment = 4 : i64}
-    // CHECK: %[[#V2:]] = cir.load %[[#V0]] : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
-    %3 = cir.load %0 : cir.ptr <!ty_22CoerceToI6422>, !ty_22CoerceToI6422
-    // CHECK: %[[#V3:]] = cir.cast(bitcast, %[[#V2]] : !ty_22CoerceToI6422), !u64i
-    // CHECK: %[[#V4:]] = cir.call @testCoerceStructToI64(%[[#V3]]) : (!u64i) -> !u64i
-    // CHECK: %[[#V5:]] = cir.cast(bitcast, %[[#V4]] : !u64i), !ty_22CoerceToI6422
-    %4 = cir.call @testCoerceStructToI64(%3) : (!ty_22CoerceToI6422) -> !ty_22CoerceToI6422
-    // CHECK: cir.store %[[#V5]], %[[#V1]] : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    cir.store %4, %1 : !ty_22CoerceToI6422, cir.ptr <!ty_22CoerceToI6422>
-    cir.return
+  cir.func @coerceStructToI64(%arg0: !StructToI64) -> !StructToI64 {
+    // CHECK: %[[#V0:]] = cir.alloca !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
+    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22StructToI6422
+    // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
+    %0 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["arg", init] {alignment = 4 : i64}
+    %1 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["__retval"] {alignment = 4 : i64}
+    %2 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["agg.tmp0"] {alignment = 4 : i64}
+    cir.store %arg0, %0 : !StructToI64, cir.ptr <!StructToI64>
+    %3 = cir.load %2 : cir.ptr <!StructToI64>, !StructToI64
+    // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !ty_22StructToI6422), !u64i
+    // CHECK: %[[#V6:]] = cir.call @coerceStructToI64(%[[#V5]]) : (!u64i) -> !u64i
+    // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V6]] : !u64i), !ty_22StructToI6422
+    %4 = cir.call @coerceStructToI64(%3) : (!StructToI64) -> !StructToI64
+    cir.store %4, %1 : !StructToI64, cir.ptr <!StructToI64>
+    %5 = cir.load %1 : cir.ptr <!StructToI64>, !StructToI64
+    // CHECK: %[[#V9:]] = cir.cast(bitcast, %{{.+}} : !ty_22StructToI6422), !u64i
+    // CHECK: cir.return %[[#V9]] : !u64i
+    cir.return %5 : !StructToI64
   }
 
 } // module.
