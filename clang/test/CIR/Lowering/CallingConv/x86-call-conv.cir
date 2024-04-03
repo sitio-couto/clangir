@@ -162,11 +162,15 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     %1 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["__retval"] {alignment = 1 : i64}
     cir.store %arg0, %0 : !cir.bool, cir.ptr <!cir.bool>
     %2 = cir.load %0 : cir.ptr <!cir.bool>, !cir.bool
-    cir.store %2, %1 : !cir.bool, cir.ptr <!cir.bool>
-    %3 = cir.load %1 : cir.ptr <!cir.bool>, !cir.bool
+    // CHECK: %[[#V4:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !u1i
+    // CHECK: %[[#V5:]] = cir.call @Bool(%[[#V4]]) : (!u1i) -> !u1i
+    // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V5]] : !u1i), !cir.bool
+    %3 = cir.call @Bool(%2) : (!cir.bool) -> !cir.bool
+    cir.store %3, %1 : !cir.bool, cir.ptr <!cir.bool>
+    %4 = cir.load %1 : cir.ptr <!cir.bool>, !cir.bool
     // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !u1i
     // CHECK: cir.return %[[#V5]] : !u1i
-    cir.return %3 : !cir.bool
+    cir.return %4 : !cir.bool
   }
 
   // TODO(cir): Support pointer types.

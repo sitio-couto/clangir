@@ -64,11 +64,10 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
     }
     if (auto intTy = T.dyn_cast<IntType>()) {
       // NOTE(cir): This assumes int types are already ABI-specific.
-      // FIXEME(cir): Use data layout interface here instead.
+      // FIXME(cir): Use data layout interface here instead.
       Width = intTy.getWidth();
-      // FIXME(cir): We get the aligment in bits. But this is probably wrong for
-      // stuff like short types.
-      Align = std::ceil(intTy.getWidth() / 8) * 8;
+      // FIXME(cir): Use the proper getABIAlignment method here.
+      Align = std::ceil((float)Width / 8) * 8;
       break;
     }
     if (auto floatTy = T.dyn_cast<Float32Type>()) {

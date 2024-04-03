@@ -374,6 +374,9 @@ FuncOp LoweringModule::getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
 /// However, they are inherently different.
 void LoweringModule::rewriteGlobalFunctionDefinition(
     FuncOp op, LoweringModule &state, PatternRewriter &rewriter) {
+  mlir::OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(op);
+
   const LoweringFunctionInfo &FI =
       state.getTypes().arrangeGlobalDeclaration(op);
   FuncType Ty = state.getTypes().getFunctionType(FI);
@@ -402,16 +405,16 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
   rewriter.eraseOp(op);
 }
 
-void LoweringModule::rewriteFunctionCall(CallOp op) {
-  llvm::outs() << "Rewriting Call " << op.getCallee() << "\n";
+void LoweringModule::rewriteFunctionCall(CallOp caller, FuncOp callee) {
+  mlir::OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(caller);
 
-  FuncOp callee = cast<FuncOp>(
-      SymbolTable::lookupNearestSymbolFrom(op, op.getCalleeAttr()));
+  llvm::outs() << "Rewriting Call " << caller.getCallee() << "\n";
 
-  LowerFunction(*this, rewriter, callee, op).rewriteCallOp(op);
+  LowerFunction(*this, rewriter, callee, caller).rewriteCallOp(caller);
 
   // Erase original ABI-agnostic call.
-  rewriter.eraseOp(op);
+  rewriter.eraseOp(caller);
 }
 
 } // namespace cir

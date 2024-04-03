@@ -111,8 +111,13 @@ void createCoercedStore(Value Src, Value Dst, bool DstIsVolatile,
   }
 }
 
-/// Create a load from \param SrcPtr interpreted as  a pointer to an object of
-/// type \param Ty, known to be aligned to  \param SrcAlign bytes.
+// FIXME(cir): Create a custom rewriter class to abstract this away.
+Value createBitcast(Value Src, Type Ty, LowerFunction &LF) {
+  return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
+                                         Src);
+}
+
+/// Coerces a \param Src value to a value of type \param Ty.
 ///
 /// This safely handles the case when the src type is smaller than the
 /// destination type; in this situation the values of bits which not present in
@@ -129,6 +134,11 @@ Value createCoercedValue(Value Src, Type Ty, LowerFunction &CGF) {
   // If SrcTy and Ty are the same, just reuse the exising load.
   if (SrcTy == Ty)
     return Src;
+
+  // If it is the special boolean case, simply bitcast it.
+  if ((SrcTy.isa<BoolType>() && Ty.isa<IntType>()) ||
+      (SrcTy.isa<IntType>() && Ty.isa<BoolType>()))
+    return createBitcast(Src, Ty, CGF);
 
   llvm::TypeSize DstSize = CGF.LM.getDataLayout().getTypeAllocSize(Ty);
 
@@ -189,10 +199,8 @@ Value castReturnValue(Value Src, Type Ty, LowerFunction &LF) {
     return Src;
 
   // If is the special boolean case, simply bitcast it.
-  if (SrcTy.isa<BoolType>() && Ty.isa<IntType>()) {
-    return LF.getRewriter().create<CastOp>(Src.getLoc(), Ty, CastKind::bitcast,
-                                           Src);
-  }
+  if (SrcTy.isa<BoolType>() && Ty.isa<IntType>())
+    return createBitcast(Src, Ty, LF);
 
   llvm::TypeSize DstSize = LF.LM.getDataLayout().getTypeAllocSize(Ty);
 
@@ -679,7 +687,7 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
   // Handle struct-return functions by passing a pointer to the
   // location that we would like to return into.
-  Type RetTy = CallInfo.getReturnType();
+  Type RetTy = CallInfo.getReturnType(); // ABI-agnostic type.
   const ABIArgInfo &RetAI = CallInfo.getReturnInfo();
 
   FuncType IRFuncTy = LM.getTypes().getFunctionType(CallInfo);
@@ -727,6 +735,14 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
     switch (ArgInfo.getKind()) {
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
+      // NOTE(cir): While booleans are lowered directly as `i1`s in the original
+      // codegen, in CIR they require a trivial bitcast. This is handled here.
+      if (info_it->type.isa<BoolType>()) {
+        IRCallArgs[FirstIRArg] =
+            createBitcast(*I, ArgInfo.getCoerceToType(), *this);
+        break;
+      }
+
       if (!isa<StructType>(ArgInfo.getCoerceToType()) &&
           ArgInfo.getCoerceToType() == info_it->type &&
           ArgInfo.getDirectOffset() == 0) {
@@ -851,8 +867,14 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
   // NOTE(cir): Skipping some tail-call, swift, writeback, memory management
   // stuff here.
 
-  // Rewrite the return value.
+  // Convert return value from ABI-agnostic to ABI-aware.
   Value Ret = [&] {
+    // Early exit if call does not return.
+    if (callOp.getNumResults() == 0)
+      return Value{};
+
+    // NOTE(cir): CIRGen already handled the emission of the return value. We
+    // need only to handle the ABI-specific to ABI-agnostic cast here.
     switch (RetAI.getKind()) {
     case ABIArgInfo::Ignore:
       // If we are ignoring an argument that had a result, make sure to
@@ -861,12 +883,18 @@ Value LowerFunction::rewriteCallOp(const LoweringFunctionInfo &CallInfo,
 
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
+      // NOTE(cir): While booleans are lowered directly as `i1`s in the original
+      // codegen, in CIR they require a trivial bitcast. This is handled here.
+      if (RetTy.isa<BoolType>())
+        return createBitcast(CI.getResult(0), RetTy, *this);
+
       Type RetIRTy = RetTy;
       if (RetAI.getCoerceToType() == RetIRTy && RetAI.getDirectOffset() == 0) {
         switch (getEvaluationKind(RetTy)) {
         case TEK_Scalar: {
           // If the argument doesn't match, perform a bitcast to coerce it. This
           // can happen due to trivial type mismatches.
+          // NOTE(cir): Perhaps this section should handle CIR's boolean case.
           Value V = CI.getResult(0);
           if (V.getType() != RetIRTy)
             llvm_unreachable("NYI");

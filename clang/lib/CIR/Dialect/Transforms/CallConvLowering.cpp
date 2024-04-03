@@ -69,52 +69,26 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
 
     LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
 
+    // TODO(cir): Would be nice to separate FuncOp and CallOp rewrites, but a
+    // few complications come with it:
+    //  - If a function is rewritten before its call, we loose ABI-agnostic
+    //    information useful to lower the CallOp.
+    //  - We might loose some cacheing benefits. AFAIK, there is no way to share
+    //    a object across all patterns in a pass.
+
+    // Rewrite function calls before definitions. We need to have the info from
+    // the original function to properly lower its calls.
+    auto calls = op.getSymbolUses(module);
+    if (calls.has_value())
+      for (auto call : calls.value())
+        state.rewriteFunctionCall(cast<CallOp>(call.getUser()), op);
+
     // TODO(cir): Instead of re-emmiting loads and stores, just bitcast
     // arguments and return values to their ABI-specific counterparts.
     // TODO(cir): We also need to properly replace value uses and erase the old
     // operations.
     // TODO(cir): Fix arguments & return val attributes printing/parsing.
     state.rewriteGlobalFunctionDefinition(op, state, rewriter);
-
-    return success();
-  }
-};
-
-// FIXME(cir): I'm not entirely sure if it is a good idea to rewrite the calls
-// on a separate pattern, mostly because I'm not sure how these rewrites are
-// scheduled (concurrent or not) and the state is going to be recreated. I'm
-// going to keep it like this for now.
-struct CallConvFuncCallRewrite : public OpRewritePattern<CallOp> {
-  using OpRewritePattern<CallOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(CallOp op,
-                                PatternRewriter &rewriter) const final {
-    // FIXME(cir): Organize the whole LoweringModule initialization.
-    auto module = op->getParentOfType<mlir::ModuleOp>();
-    auto dataLayout =
-        module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())
-            .cast<StringAttr>();
-
-    llvm::Triple triple(
-        module->getAttr("cir.triple").cast<StringAttr>().getValue());
-    clang::TargetOptions targetOptions;
-    targetOptions.Triple = triple.str();
-
-    auto targetInfo = clang::targets::AllocateTarget(triple, targetOptions);
-
-    // FIXME(cir): This just uses the default language options.
-    assert(MissingFeature::langOptions());
-    clang::LangOptions langOpts;
-
-    auto context = CIRContext(module.getContext(), langOpts);
-    context.initBuiltinTypes(*targetInfo);
-
-    LoweringModule state(context, module, dataLayout, *targetInfo, rewriter);
-
-    // TODO(cir): Use ReturnValueSlot in some way (or remove it for now).
-    state.rewriteFunctionCall(op);
-
-    module.dump();
 
     return success();
   }
@@ -133,8 +107,7 @@ struct CallConvLoweringPass
 };
 
 void populateCallConvLoweringPassPatterns(RewritePatternSet &patterns) {
-  patterns.add<CallConvFuncDefRewrite, CallConvFuncCallRewrite>(
-      patterns.getContext());
+  patterns.add<CallConvFuncDefRewrite>(patterns.getContext());
 }
 
 void CallConvLoweringPass::runOnOperation() {
