@@ -195,6 +195,10 @@ LoweringTypes::arrangeLLVMFunctionInfo(Type resultType, FnInfoOpts opts,
   assert(MissingFeature::fnInfoProfile());
   LoweringFunctionInfo *FI = nullptr;
 
+  // FIXME(cir): Users may enforce a specific CC for a function using, for
+  // example: void __attribute__((vectorcall)) func(int a) {}. CIR functions
+  // should carry this information so that we may query it here instead of
+  // always passing CC_C.
   assert(MissingFeature::extParamInfo());
   unsigned CC = clangCallConvToLLVMCallConv(clang::CallingConv::CC_C);
 
