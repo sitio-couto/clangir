@@ -39,7 +39,7 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
   // TODO(cir): We should implement a better way to identify type kinds and use
   // builting data layout interface for this.
   auto typeKind = clang::Type::Builtin;
-  if (T.isa<IntType, Float32Type, Float64Type, BoolType>()) {
+  if (T.isa<IntType, SingleType, DoubleType, BoolType>()) {
     typeKind = clang::Type::Builtin;
   } else if (T.isa<StructType>()) {
     typeKind = clang::Type::Record;
@@ -70,12 +70,12 @@ TypeInfo CIRContext::getTypeInfoImpl(const Type T) const {
       Align = std::ceil((float)Width / 8) * 8;
       break;
     }
-    if (auto floatTy = T.dyn_cast<Float32Type>()) {
+    if (auto floatTy = T.dyn_cast<SingleType>()) {
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
       break;
     }
-    if (auto doubleTy = T.dyn_cast<Float64Type>()) {
+    if (auto doubleTy = T.dyn_cast<DoubleType>()) {
       Width = Target->getDoubleWidth();
       Align = Target->getDoubleAlign();
       break;

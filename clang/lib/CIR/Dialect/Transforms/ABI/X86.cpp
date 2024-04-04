@@ -39,7 +39,7 @@ unsigned getNativeVectorSizeForAVXABI(X86AVXABILevel AVXLevel) {
 /// Return a floating point type at the specified offset.
 Type getFPTypeAtOffset(Type IRType, unsigned IROffset,
                        const CIRDataLayout &TD) {
-  if (IROffset == 0 && IRType.isa<FloatType>())
+  if (IROffset == 0 && IRType.isa<SingleType, DoubleType>())
     return IRType;
 
   llvm_unreachable("NYI");
@@ -330,7 +330,7 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   // assertion below was added.
   assert(MissingFeature::isBuiltinType());
   if (!Ty.isa<IntType>() && !Ty.isa<BoolType>() && !Ty.isa<StructType>() &&
-      !Ty.isa<VoidType>() && !Ty.isa<Float32Type>() && !Ty.isa<Float64Type>()) {
+      !Ty.isa<VoidType>() && !Ty.isa<SingleType>() && !Ty.isa<DoubleType>()) {
     llvm::outs() << "Missing X86 classification for type " << Ty << "\n";
     llvm_unreachable("NYI");
   }
@@ -353,7 +353,7 @@ void X86_64ABIInfo::classify(Type Ty, uint64_t OffsetBase, Class &Lo, Class &Hi,
   }
 
   // Equivalent to: BuiltinType::Float || BuiltinType::Double
-  if (Ty.isa<Float32Type>() || Ty.isa<Float64Type>()) {
+  if (Ty.isa<SingleType>() || Ty.isa<DoubleType>()) {
     Current = SSE;
     return;
   }

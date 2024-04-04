@@ -76,16 +76,18 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
     cir.return %0 : !s64i
   }
 
-  // CHECK: @Float(%arg0: f32) -> f32
-  cir.func @Float(%arg0: f32) -> f32 {
-    %0 = cir.call @Float(%arg0) : (f32) -> f32
-    cir.return %0 : f32
+  // FIXME(cir): Is !cir.float truly ABI-specific? If not, it should be converted to !f32.
+  // CHECK: @Float(%arg0: !cir.float) -> !cir.float
+  cir.func @Float(%arg0: !cir.float) -> !cir.float {
+    %0 = cir.call @Float(%arg0) : (!cir.float) -> !cir.float
+    cir.return %0 : !cir.float
   }
 
-  // CHECK: @Double(%arg0: f64) -> f64
-  cir.func @Double(%arg0: f64) -> f64 {
-    %0 = cir.call @Double(%arg0) : (f64) -> f64
-    cir.return %0 : f64
+  // FIXME(cir): Is !cir.double truly ABI-specific? If not, it should be converted to !f64.
+  // CHECK: @Double(%arg0: !cir.double) -> !cir.double
+  cir.func @Double(%arg0: !cir.double) -> !cir.double {
+    %0 = cir.call @Double(%arg0) : (!cir.double) -> !cir.double
+    cir.return %0 : !cir.double
   }
 
   // NOTE(cir): Since we have a ABI-agnostic representation for bool, it requires

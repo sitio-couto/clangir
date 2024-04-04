@@ -1,6 +1,7 @@
 #include "DataLayout.h"
 #include "MissingFeature.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "clang/CIR/Interfaces/CIRFPTypeInterface.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -669,7 +670,7 @@ Align CIRDataLayout::getAlignment(Type Ty, bool abi_or_pref) const {
                              : DL.getTypePreferredAlignment(PtrTy);
     return llvm::Align(align);
   }
-  if (auto floatTy = Ty.dyn_cast<FloatType>()) {
+  if (auto floatTy = Ty.dyn_cast<CIRFPTypeInterface>()) {
     // FIXME(cir): We should be able to use MLIR's datalayout interface to
     // easily query this.
     unsigned BitWidth = floatTy.getWidth();
@@ -698,7 +699,7 @@ inline llvm::TypeSize CIRDataLayout::getTypeSizeInBits(Type Ty) const {
     assert(MissingFeature::addresSpace());
     return llvm::TypeSize::getFixed(DL.getTypeSizeInBits(PtrTy));
   }
-  if (auto floatTy = Ty.dyn_cast<FloatType>()) {
+  if (auto floatTy = Ty.dyn_cast<CIRFPTypeInterface>()) {
     return llvm::TypeSize::getFixed(floatTy.getWidth());
   }
   
