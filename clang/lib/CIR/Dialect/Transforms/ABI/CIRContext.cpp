@@ -1,11 +1,7 @@
 #include "CIRContext.h"
 #include "CIRRecordLayout.h"
 #include "MissingFeature.h"
-#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/Interfaces/DataLayoutInterfaces.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/AddressSpaces.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cmath>

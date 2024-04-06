@@ -17,7 +17,6 @@ add_clang_library(ABILowering
   DEPENDS
 
   LINK_LIBS PUBLIC
-  clangBasic
 
   MLIRIR
   MLIRPass

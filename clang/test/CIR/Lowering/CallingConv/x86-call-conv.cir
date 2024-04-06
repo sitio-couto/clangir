@@ -94,6 +94,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   // a bit more work to lower it than the other trivial cases which are already
   // lowered as ABI-speicifc types, albeit without attributes.
 
+  // CHECK: @Bool(%arg0: !cir.bool {cir.zeroext}) -> (!cir.bool {cir.zeroext})
   // CHECK: @Bool(%arg0: !u1i {cir.zeroext}) -> (!u1i {cir.zeroext})
   cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
     // CHECK: %[[#V0:]] = cir.alloca !cir.bool, cir.ptr <!cir.bool>
@@ -135,6 +136,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // properly casted to ABI-specific types in function definitions and calls.
 //===----------------------------------------------------------------------===//
 
+  // CHECK: cir.call @coerceStructToI64(%[[#V5]]) : (!u64i) -> !u64i
   cir.func @coerceStructToI64(%arg0: !StructToI64) -> !StructToI64 {
     // CHECK: %[[#V0:]] = cir.alloca !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22StructToI6422
