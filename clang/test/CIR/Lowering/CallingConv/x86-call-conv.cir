@@ -96,19 +96,19 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 
   // CHECK: @Bool(%arg0: !cir.int<u, 1> {cir.zeroext}) -> (!cir.int<u, 1> {cir.zeroext})
   cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
-    // CHECK: %[[#V0:]] = cir.alloca !cir.bool, cir.ptr <!cir.bool>
+    // CHECK: %[[#V0:]] = cir.alloca !cir.bool, !cir.ptr<!cir.bool>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !cir.int<u, 1>), !cir.bool
-    // CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, cir.ptr <!cir.bool>
-    %0 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["arg", init] {alignment = 1 : i64}
-    %1 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["__retval"] {alignment = 1 : i64}
-    cir.store %arg0, %0 : !cir.bool, cir.ptr <!cir.bool>
-    %2 = cir.load %0 : cir.ptr <!cir.bool>, !cir.bool
+    // CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, !cir.ptr<!cir.bool>
+    %0 = cir.alloca !cir.bool, !cir.ptr<!cir.bool>, ["arg", init] {alignment = 1 : i64}
+    %1 = cir.alloca !cir.bool, !cir.ptr<!cir.bool>, ["__retval"] {alignment = 1 : i64}
+    cir.store %arg0, %0 : !cir.bool, !cir.ptr<!cir.bool>
+    %2 = cir.load %0 : !cir.ptr<!cir.bool>, !cir.bool
     // CHECK: %[[#V4:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !cir.int<u, 1>
     // CHECK: %[[#V5:]] = cir.call @Bool(%[[#V4]]) : (!cir.int<u, 1>) -> !cir.int<u, 1>
     // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V5]] : !cir.int<u, 1>), !cir.bool
     %3 = cir.call @Bool(%2) : (!cir.bool) -> !cir.bool
-    cir.store %3, %1 : !cir.bool, cir.ptr <!cir.bool>
-    %4 = cir.load %1 : cir.ptr <!cir.bool>, !cir.bool
+    cir.store %3, %1 : !cir.bool, !cir.ptr<!cir.bool>
+    %4 = cir.load %1 : !cir.ptr<!cir.bool>, !cir.bool
     // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !cir.int<u, 1>
     // CHECK: cir.return %[[#V5]] : !cir.int<u, 1>
     cir.return %4 : !cir.bool
@@ -130,20 +130,20 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 
   // CHECK: cir.func @coerceStructToI64(%arg0: !u64i) -> !u64i {
   cir.func @coerceStructToI64(%arg0: !StructToI64) -> !StructToI64 {
-    // CHECK: %[[#V0:]] = cir.alloca !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
+    // CHECK: %[[#V0:]] = cir.alloca !ty_22StructToI6422, !cir.ptr<!ty_22StructToI6422>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22StructToI6422
-    // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
-    %0 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["arg", init] {alignment = 4 : i64}
-    %1 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["__retval"] {alignment = 4 : i64}
-    %2 = cir.alloca !StructToI64, cir.ptr <!StructToI64>, ["agg.tmp0"] {alignment = 4 : i64}
-    cir.store %arg0, %0 : !StructToI64, cir.ptr <!StructToI64>
-    %3 = cir.load %2 : cir.ptr <!StructToI64>, !StructToI64
+    // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22StructToI6422, !cir.ptr<!ty_22StructToI6422>
+    %0 = cir.alloca !StructToI64, !cir.ptr<!StructToI64>, ["arg", init] {alignment = 4 : i64}
+    %1 = cir.alloca !StructToI64, !cir.ptr<!StructToI64>, ["__retval"] {alignment = 4 : i64}
+    %2 = cir.alloca !StructToI64, !cir.ptr<!StructToI64>, ["agg.tmp0"] {alignment = 4 : i64}
+    cir.store %arg0, %0 : !StructToI64, !cir.ptr<!StructToI64>
+    %3 = cir.load %2 : !cir.ptr<!StructToI64>, !StructToI64
     // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !ty_22StructToI6422), !u64i
     // CHECK: %[[#V6:]] = cir.call @coerceStructToI64(%[[#V5]]) : (!u64i) -> !u64i
     // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V6]] : !u64i), !ty_22StructToI6422
     %4 = cir.call @coerceStructToI64(%3) : (!StructToI64) -> !StructToI64
-    cir.store %4, %1 : !StructToI64, cir.ptr <!StructToI64>
-    %5 = cir.load %1 : cir.ptr <!StructToI64>, !StructToI64
+    cir.store %4, %1 : !StructToI64, !cir.ptr<!StructToI64>
+    %5 = cir.load %1 : !cir.ptr<!StructToI64>, !StructToI64
     // CHECK: %[[#V9:]] = cir.cast(bitcast, %{{.+}} : !ty_22StructToI6422), !u64i
     // CHECK: cir.return %[[#V9]] : !u64i
     cir.return %5 : !StructToI64
