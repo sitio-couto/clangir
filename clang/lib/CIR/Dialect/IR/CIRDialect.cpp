@@ -430,14 +430,14 @@ LogicalResult CastOp::verify() {
     return success();
   }
   case cir::CastKind::bitcast: {
-    // This is the only cast kind where we don't want vector types to decay
-    // into the element type.
-    if ((!getSrc().getType().isa<mlir::cir::PointerType>() ||
-         !getResult().getType().isa<mlir::cir::PointerType>()) &&
-        (!getSrc().getType().isa<mlir::cir::VectorType>() ||
-         !getResult().getType().isa<mlir::cir::VectorType>()))
-      return emitOpError()
-             << "requires !cir.ptr or !cir.vector type for source and result";
+    // May only bitcast a pointer to another pointer.
+    if (srcType.isa<PointerType>() != resType.isa<PointerType>())
+      return emitOpError() << "requires !cir.ptr type for source and result";
+
+    // May only bitcast a vector to another vector.
+    if (srcType.isa<VectorType>() != resType.isa<VectorType>())
+      return emitOpError() << "requires !cir.vector type for source and result";
+
     return success();
   }
   case cir::CastKind::floating: {
