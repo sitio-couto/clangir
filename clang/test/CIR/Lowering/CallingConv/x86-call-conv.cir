@@ -94,24 +94,23 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   // a bit more work to lower it than the other trivial cases which are already
   // lowered as ABI-speicifc types, albeit without attributes.
 
-  // CHECK: @Bool(%arg0: !cir.bool {cir.zeroext}) -> (!cir.bool {cir.zeroext})
-  // CHECK: @Bool(%arg0: !u1i {cir.zeroext}) -> (!u1i {cir.zeroext})
+  // CHECK: @Bool(%arg0: !cir.int<u, 1> {cir.zeroext}) -> (!cir.int<u, 1> {cir.zeroext})
   cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
     // CHECK: %[[#V0:]] = cir.alloca !cir.bool, cir.ptr <!cir.bool>
-    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u1i), !cir.bool
+    // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !cir.int<u, 1>), !cir.bool
     // CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, cir.ptr <!cir.bool>
     %0 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["arg", init] {alignment = 1 : i64}
     %1 = cir.alloca !cir.bool, cir.ptr <!cir.bool>, ["__retval"] {alignment = 1 : i64}
     cir.store %arg0, %0 : !cir.bool, cir.ptr <!cir.bool>
     %2 = cir.load %0 : cir.ptr <!cir.bool>, !cir.bool
-    // CHECK: %[[#V4:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !u1i
-    // CHECK: %[[#V5:]] = cir.call @Bool(%[[#V4]]) : (!u1i) -> !u1i
-    // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V5]] : !u1i), !cir.bool
+    // CHECK: %[[#V4:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !cir.int<u, 1>
+    // CHECK: %[[#V5:]] = cir.call @Bool(%[[#V4]]) : (!cir.int<u, 1>) -> !cir.int<u, 1>
+    // CHECK: %{{.+}} = cir.cast(bitcast, %[[#V5]] : !cir.int<u, 1>), !cir.bool
     %3 = cir.call @Bool(%2) : (!cir.bool) -> !cir.bool
     cir.store %3, %1 : !cir.bool, cir.ptr <!cir.bool>
     %4 = cir.load %1 : cir.ptr <!cir.bool>, !cir.bool
-    // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !u1i
-    // CHECK: cir.return %[[#V5]] : !u1i
+    // CHECK: %[[#V5:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !cir.int<u, 1>
+    // CHECK: cir.return %[[#V5]] : !cir.int<u, 1>
     cir.return %4 : !cir.bool
   }
 
@@ -121,13 +120,6 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   //   cir.return %arg0 : !cir.ptr<!s32i>
   // }
 
-  // TODO(cir): Support struct types coercion.
-
-//===----------------------------------------------------------------------===//
-// Test trivial function call calling convention lowering scenarios.
-//===----------------------------------------------------------------------===//
-
-
 
 //===----------------------------------------------------------------------===//
 // Test calling convention struct types coercion.
@@ -136,7 +128,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // properly casted to ABI-specific types in function definitions and calls.
 //===----------------------------------------------------------------------===//
 
-  // CHECK: cir.call @coerceStructToI64(%[[#V5]]) : (!u64i) -> !u64i
+  // CHECK: cir.func @coerceStructToI64(%arg0: !u64i) -> !u64i {
   cir.func @coerceStructToI64(%arg0: !StructToI64) -> !StructToI64 {
     // CHECK: %[[#V0:]] = cir.alloca !ty_22StructToI6422, cir.ptr <!ty_22StructToI6422>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22StructToI6422

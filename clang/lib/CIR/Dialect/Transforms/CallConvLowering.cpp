@@ -111,6 +111,7 @@ void populateCallConvLoweringPassPatterns(RewritePatternSet &patterns) {
 }
 
 void CallConvLoweringPass::runOnOperation() {
+  assert(getOperation()->getAttr("cir.triple") && "missing target triple");
 
   // Collect rewrite patterns to be used in the pass.
   RewritePatternSet patterns(&getContext());
