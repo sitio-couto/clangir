@@ -19,7 +19,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
 // Test trivial function call and definition call conv lowering scenarios.
 //===----------------------------------------------------------------------===//
 
-  // CHECK: @Void()
+  // CHECK: @Void() {
   cir.func @Void() {
     cir.call @Void() : () -> ()
     cir.return
@@ -28,63 +28,63 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   // TODO(cir): Missing noundef attributes in some cases.
   // TODO(cir): Calls do not have return and argument attributes.
 
-  // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext})
+  // CHECK: @UChar(%arg0: !u8i {cir.zeroext}) -> (!u8i {cir.zeroext}) {
   cir.func @UChar(%arg0: !u8i) -> !u8i {
     %0 = cir.call @UChar(%arg0) : (!u8i) -> !u8i
     cir.return %0 : !u8i
   }
 
-  // CHECK: @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext})
+  // CHECK: @UShort(%arg0: !u16i  {cir.zeroext}) -> (!u16i {cir.zeroext}) {
   cir.func @UShort(%arg0: !u16i) -> !u16i {
     %0 = cir.call @UShort(%arg0) : (!u16i) -> !u16i
     cir.return %0 : !u16i
   }
 
-  // CHECK: @UInt(%arg0: !u32i) -> !u32i
+  // CHECK: @UInt(%arg0: !u32i) -> !u32i {
   cir.func @UInt(%arg0: !u32i) -> !u32i {
     %0 = cir.call @UInt(%arg0) : (!u32i) -> !u32i
     cir.return %0 : !u32i 
   }
 
-  // CHECK: @ULong(%arg0: !u64i) -> !u64i
+  // CHECK: @ULong(%arg0: !u64i) -> !u64i {
   cir.func @ULong(%arg0: !u64i) -> !u64i {
     %0 = cir.call @ULong(%arg0) : (!u64i) -> !u64i
     cir.return %0 : !u64i
   }
 
-  // CHECK: @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext})
+  // CHECK: @SChar(%arg0: !s8i {cir.signext}) -> (!s8i {cir.signext}) {
   cir.func @SChar(%arg0: !s8i) -> !s8i {
     %0 = cir.call @SChar(%arg0) : (!s8i) -> !s8i
     cir.return %0 : !s8i
   }
 
-  // CHECK: @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext})
+  // CHECK: @SShort(%arg0: !s16i {cir.signext}) -> (!s16i {cir.signext}) {
   cir.func @SShort(%arg0: !s16i) -> !s16i {
     %0 = cir.call @SShort(%arg0) : (!s16i) -> !s16i
     cir.return %0 : !s16i
   }
 
-  // CHECK: @SInt(%arg0: !s32i) -> !s32i
+  // CHECK: @SInt(%arg0: !s32i) -> !s32i {
   cir.func @SInt(%arg0: !s32i) -> !s32i {
     %0 = cir.call @SInt(%arg0) : (!s32i) -> !s32i
     cir.return %0 : !s32i
   }
 
-  // CHECK: @SLong(%arg0: !s64i) -> !s64i
+  // CHECK: @SLong(%arg0: !s64i) -> !s64i {
   cir.func @SLong(%arg0: !s64i) -> !s64i {
     %0 = cir.call @SLong(%arg0) : (!s64i) -> !s64i
     cir.return %0 : !s64i
   }
 
   // FIXME(cir): Is !cir.float truly ABI-specific? If not, it should be converted to !f32.
-  // CHECK: @Float(%arg0: !cir.float) -> !cir.float
+  // CHECK: @Float(%arg0: !cir.float) -> !cir.float {
   cir.func @Float(%arg0: !cir.float) -> !cir.float {
     %0 = cir.call @Float(%arg0) : (!cir.float) -> !cir.float
     cir.return %0 : !cir.float
   }
 
   // FIXME(cir): Is !cir.double truly ABI-specific? If not, it should be converted to !f64.
-  // CHECK: @Double(%arg0: !cir.double) -> !cir.double
+  // CHECK: @Double(%arg0: !cir.double) -> !cir.double {
   cir.func @Double(%arg0: !cir.double) -> !cir.double {
     %0 = cir.call @Double(%arg0) : (!cir.double) -> !cir.double
     cir.return %0 : !cir.double
@@ -94,7 +94,7 @@ module attributes {cir.lang = #cir.lang<cxx>, cir.sob = #cir.signed_overflow_beh
   // a bit more work to lower it than the other trivial cases which are already
   // lowered as ABI-speicifc types, albeit without attributes.
 
-  // CHECK: @Bool(%arg0: !cir.int<u, 1> {cir.zeroext}) -> (!cir.int<u, 1> {cir.zeroext})
+  // CHECK: @Bool(%arg0: !cir.int<u, 1> {cir.zeroext}) -> (!cir.int<u, 1> {cir.zeroext}) {
   cir.func @Bool(%arg0: !cir.bool) -> !cir.bool {
     // CHECK: %[[#V0:]] = cir.alloca !cir.bool, !cir.ptr<!cir.bool>
     // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !cir.int<u, 1>), !cir.bool
