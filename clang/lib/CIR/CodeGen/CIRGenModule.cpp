@@ -183,6 +183,7 @@ CIRGenModule::CIRGenModule(mlir::MLIRContext &context,
                      mlir::cir::SignedOverflowBehaviorAttr::get(&context, sob));
   theModule->setAttr(
       "cir.lang", mlir::cir::LangAttr::get(&context, getCIRSourceLanguage()));
+  theModule->setAttr("cir.triple", builder.getStringAttr(getTriple().str()));
   // Set the module name to be the name of the main file. TranslationUnitDecl
   // often contains invalid source locations and isn't a reliable source for the
   // module location.
