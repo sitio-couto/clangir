@@ -26,7 +26,8 @@ runCIRToCIRPasses(mlir::ModuleOp theModule, mlir::MLIRContext *mlirCtx,
                   bool enableIdiomRecognizer,
                   llvm::StringRef idiomRecognizerOpts, bool enableLibOpt,
                   llvm::StringRef libOptOpts,
-                  std::string &passOptParsingFailure, bool flattenCIR) {
+                  std::string &passOptParsingFailure, bool flattenCIR,
+                  bool enableCallConvLowering) {
   mlir::PassManager pm(mlirCtx);
   pm.addPass(mlir::createMergeCleanupsPass());
 
@@ -65,6 +66,12 @@ runCIRToCIRPasses(mlir::ModuleOp theModule, mlir::MLIRContext *mlirCtx,
   }
 
   pm.addPass(mlir::createLoweringPreparePass(&astCtx));
+
+  // FIXME(cir): This pass should run by default, but it is lacking support for
+  // several code bits. Once it's more mature, we should fix it.
+  if (enableCallConvLowering)
+    pm.addPass(mlir::createCallConvLoweringPass());
+
   if (flattenCIR)
     mlir::populateCIRPreLoweringPasses(pm);
 
