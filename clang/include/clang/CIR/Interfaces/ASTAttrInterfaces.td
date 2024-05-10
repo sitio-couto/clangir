@@ -84,6 +84,11 @@ let cppNamespace = "::mlir::cir" in {
         /*defaultImplementation=*/ [{
           return $_attr.getAst()->isStatic();
         }]
+      >,
+      InterfaceMethod<"", "const clang::FunctionDecl*", "getAstPtr", (ins), [{}],
+        /*defaultImplementation=*/ [{
+          return dyn_cast<clang::FunctionDecl>($_attr.getAst());
+      }]
       >
     ];
   }
