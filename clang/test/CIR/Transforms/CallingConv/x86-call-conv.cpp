@@ -85,12 +85,12 @@ double Double(double d) {
 
 /// Test call conv lowering for trivial bitcast type coercion. ///
 
+/// Cast argument to the expected type.
 // CHECK: cir.func @_Z4Boolb(%arg0: !cir.int<u, 1> {cir.zeroext} loc({{.+}})) -> (!cir.int<u, 1> {cir.zeroext})
+// CHECK: %[[#V0:]] = cir.alloca !cir.bool, !cir.ptr<!cir.bool>
+// CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !cir.int<u, 1>), !cir.bool
+// CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, !cir.ptr<!cir.bool>
 bool Bool(bool a) {
-  /// Cast argument to the expected type.
-  // CHECK: %[[#V0:]] = cir.alloca !cir.bool, !cir.ptr<!cir.bool>
-  // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !cir.int<u, 1>), !cir.bool
-  // CHECK: cir.store %[[#V1]], %[[#V0]] : !cir.bool, !cir.ptr<!cir.bool>
 
   /// Cast argument and result of the function call to the expected types.
   // CHECK: %[[#V4:]] = cir.cast(bitcast, %{{.+}} : !cir.bool), !cir.int<u, 1>
@@ -122,13 +122,21 @@ struct S1 {
 
 /// Validate coerced argument and cast it to the expected type.
 
+/// Cast arguments to the expected type.
 // CHECK: cir.func @_Z2s12S1(%arg0: !u64i loc({{.+}})) -> !u64i
 // CHECK: %[[#V0:]] = cir.alloca !ty_22S122, !cir.ptr<!ty_22S122>
 // CHECK: %[[#V1:]] = cir.cast(bitcast, %arg0 : !u64i), !ty_22S122
 // CHECK: cir.store %[[#V1]], %[[#V0]] : !ty_22S122, !cir.ptr<!ty_22S122>
 S1 s1(S1 arg) {
-  // CHECK: %[[#V7:]] = cir.load %{{.+}} : !cir.ptr<!ty_22S122>, !ty_22S122
-  // CHECK: %[[#V8:]] = cir.cast(bitcast, %[[#V7]] : !ty_22S122), !u64i
-  // CHECK: cir.return %[[#V8]] : !u64i
+
+  /// Cast argument and result of the function call to the expected types.
+  // CHECK: %[[#V9:]] = cir.cast(bitcast, %{{.+}} : !ty_22S122), !u64i
+  // CHECK: %[[#V10:]] = cir.call @_Z2s12S1(%[[#V9]]) : (!u64i) -> !u64i
+  // CHECK: %[[#V11:]] = cir.cast(bitcast, %[[#V10]] : !u64i), !ty_22S122
+  s1({1, 2});
+
+  // CHECK: %[[#V12:]] = cir.load %{{.+}} : !cir.ptr<!ty_22S122>, !ty_22S122
+  // CHECK: %[[#V13:]] = cir.cast(bitcast, %[[#V12]] : !ty_22S122), !u64i
+  // CHECK: cir.return %[[#V13]] : !u64i
   return {1, 2};
 }
