@@ -47,6 +47,8 @@ struct CallConvFuncDefRewrite : public OpRewritePattern<FuncOp> {
 
   LogicalResult matchAndRewrite(FuncOp op,
                                 PatternRewriter &rewriter) const final {
+    assert(op.getAst() && "missing AST information");
+
     // FIXME(cir): Organize the whole LoweringModule initialization.
     auto module = op->getParentOfType<mlir::ModuleOp>();
     auto dataLayout =
