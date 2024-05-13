@@ -5,8 +5,10 @@
 #include "MissingFeature.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/ValueRange.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "clang/CIR/Interfaces/ASTAttrInterfaces.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -149,7 +151,8 @@ LoweringTypes::arrangeFreeFunctionCall(const OperandRange args,
 }
 
 const LoweringFunctionInfo &LoweringTypes::arrangeGlobalDeclaration(FuncOp GD) {
-  if (!MissingFeature::isCtorOrDtor())
+  if (isa<clang::CXXConstructorDecl>(GD.getDecl()) ||
+      isa<clang::CXXDestructorDecl>(GD.getDecl()))
     llvm_unreachable("NYI");
 
   return arrangeFunctionDeclaration(GD);

@@ -13,6 +13,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/Value.h"
+#include "clang/AST/DeclCXX.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DataLayout.h"
@@ -351,8 +352,8 @@ FuncOp LoweringModule::getAddrOfFunction(FuncOp GD, FuncType Ty, bool ForVTable,
 
   // FIXME(cir): we might need to identify ctor and dtors for ABI lowering
   // here.
-  if (!MissingFeature::isCtorOrDtor()) {
-    llvm_unreachable("Ctors and Dtors are not supported");
+  if (const auto *FD = dyn_cast<clang::CXXConstructorDecl>(GD.getDecl())) {
+    llvm_unreachable("NYI");
   }
 
   // NOTE(cir): No need to get the mangled name here. CIR's highest level

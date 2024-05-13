@@ -50,7 +50,7 @@ struct MissingFeature {
   // functions (ctor, dtor, method, etc), it does not carry attributes
   // (__attribute__((...))), it does not track a class's base type, among other
   // details.
-  static bool isCtorOrDtor() { return true; }
+  static bool dtorType() { return true; }
   static bool isMethod() { return true; }
   static bool isCXXOperatorCall() { return true; }
   static bool vectorType() { return true; }

@@ -1,8 +1,10 @@
 #pragma once
 
-#include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "LoweringFunctionInfo.h"
 #include "MissingFeature.h"
+#include "clang/CIR/Dialect/IR/CIRDialect.h"
+#include "clang/CIR/Interfaces/ASTAttrInterfaces.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
 namespace cir {
@@ -29,7 +31,10 @@ public:
   /// There currently is no way to indicate if a destructor returns 'this'
   /// when called virtually, and code generation does not support the case.
   virtual bool hasThisReturn(FuncOp GD) const {
-    assert(MissingFeature::isCtorOrDtor());
+    if (isa<clang::CXXConstructorDecl>(GD.getDecl()) ||
+        (isa<clang::CXXDestructorDecl>(GD.getDecl()) &&
+         MissingFeature::dtorType()))
+      llvm_unreachable("NYI");
     return false;
   }
 
