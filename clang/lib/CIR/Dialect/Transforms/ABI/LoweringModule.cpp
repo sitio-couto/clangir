@@ -318,9 +318,6 @@ FuncOp LoweringModule::getOrCreateCIRFunction(StringRef MangledName,
 
   // Set up function attributes.
   setFunctionAttributes(GD, F, false, IsThunk);
-  llvm::outs() << "New Attributes: \n"
-               << "\tResult: " << F.getResAttrs() << "\n"
-               << "\tArgs: " << F.getArgAttrs() << "\n";
   if (!ExtraAttrs.empty()) {
     llvm_unreachable("ExtraAttrs are NYI");
   }
@@ -381,10 +378,6 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
       state.getTypes().arrangeGlobalDeclaration(op);
   FuncType Ty = state.getTypes().getFunctionType(FI);
 
-  llvm::outs() << "Call Conv Lowering\n"
-               << "\tfrom: " << op.getFunctionType() << "\n"
-               << "\t  to: " << Ty << "\n";
-
   // NOTE(cir): Even if the old function type and the new function type are
   // the same, we still need to rewrite the function to conform to the ABI in
   // most cases. For example, `void (u32i)` will be lowered to `void (zeroext
@@ -408,8 +401,6 @@ void LoweringModule::rewriteGlobalFunctionDefinition(
 void LoweringModule::rewriteFunctionCall(CallOp caller, FuncOp callee) {
   mlir::OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPoint(caller);
-
-  llvm::outs() << "Rewriting Call " << caller.getCallee() << "\n";
 
   LowerFunction(*this, rewriter, callee, caller).rewriteCallOp(caller);
 
