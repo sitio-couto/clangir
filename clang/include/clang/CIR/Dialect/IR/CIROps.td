@@ -2601,6 +2601,10 @@ def FuncOp : CIR_Op<"func", [
     /// called safely.
     LogicalResult verifyType();
 
+    const clang::FunctionDecl *getDecl() {
+      return cast<ASTFunctionDeclInterface>(getAstAttr()).getAstPtr();
+    }
+
     //===------------------------------------------------------------------===//
     // SymbolOpInterface Methods
     //===------------------------------------------------------------------===//
