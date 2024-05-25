@@ -64,11 +64,34 @@ struct CallConvLoweringPattern : public OpRewritePattern<FuncOp> {
 
   LogicalResult matchAndRewrite(FuncOp op,
                                 PatternRewriter &rewriter) const final {
+    const auto module = op->getParentOfType<mlir::ModuleOp>();
+
     if (!op.getAst())
       return op.emitError("function has no AST information");
 
     LowerModule lowerModule = createLowerModule(op, rewriter);
 
+    // TODO(cir): Would be nice to separate FuncOp and CallOp rewrites, but a
+    // few complications come with it:
+    //  - If a function is rewritten before its call, we loose ABI-agnostic
+    //    information useful to lower the CallOp.
+    //  - We might loose some cacheing benefits. AFAIK, there is no way to share
+    //    a object across all patterns in a pass.
+
+    // Rewrite function calls before definitions. This should be done before
+    // lowering the definition.
+    auto calls = op.getSymbolUses(module);
+    if (calls.has_value()) {
+      for (auto call : calls.value()) {
+        auto callOp = cast<CallOp>(call.getUser());
+        if (lowerModule.rewriteFunctionCall(callOp, op).failed())
+          return failure();
+      }
+    }
+
+    // Rewrite function definition.
+    // FIXME(cir): This is a workaround to avoid an infinite loop in the driver.
+    rewriter.replaceOp(op, rewriter.clone(*op));
     return success();
   }
 };

@@ -14,6 +14,8 @@
 #ifndef LLVM_CLANG_LIB_CIR_DIALECT_TRANSFORMS_TARGETLOWERING_CIRCXXABI_H
 #define LLVM_CLANG_LIB_CIR_DIALECT_TRANSFORMS_TARGETLOWERING_CIRCXXABI_H
 
+#include "LowerFunctionInfo.h"
+
 namespace mlir {
 namespace cir {
 
@@ -30,6 +32,10 @@ protected:
 
 public:
   virtual ~CIRCXXABI();
+
+  /// If the C++ ABI requires the given type be returned in a particular way,
+  /// this method sets RetAI and returns true.
+  virtual bool classifyReturnType(LowerFunctionInfo &FI) const = 0;
 };
 
 /// Creates an Itanium-family ABI.

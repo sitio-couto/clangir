@@ -17,8 +17,9 @@
 #define LLVM_CLANG_LIB_CIR_DIALECT_TRANSFORMS_TARGETLOWERING_CIRTOCIRARGMAPPING_H
 
 #include "CIRContext.h"
-#include "LoweringFunctionInfo.h"
+#include "LowerFunctionInfo.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/ErrorHandling.h"
 
 namespace mlir {
 namespace cir {
@@ -49,9 +50,36 @@ class CIRToCIRArgMapping {
 public:
   CIRToCIRArgMapping(const CIRContext &context, const LowerFunctionInfo &FI,
                      bool onlyRequiredArgs = false)
-      : ArgInfo(onlyRequiredArgs ? FI.getNumRequiredArgs() : FI.arg_size()){};
+      : ArgInfo(onlyRequiredArgs ? FI.getNumRequiredArgs() : FI.arg_size()) {
+    construct(context, FI, onlyRequiredArgs);
+  };
 
   unsigned totalIRArgs() const { return TotalIRArgs; }
+
+  void construct(const CIRContext &context, const LowerFunctionInfo &FI,
+                 bool onlyRequiredArgs = false) {
+    unsigned IRArgNo = 0;
+    const ABIArgInfo &RetAI = FI.getReturnInfo();
+
+    if (RetAI.getKind() == ABIArgInfo::Indirect) {
+      llvm_unreachable("NYI");
+    }
+
+    unsigned ArgNo = 0;
+    unsigned NumArgs =
+        onlyRequiredArgs ? FI.getNumRequiredArgs() : FI.arg_size();
+    for (LowerFunctionInfo::const_arg_iterator _ = FI.arg_begin();
+         ArgNo < NumArgs; ++_, ++ArgNo) {
+      llvm_unreachable("NYI");
+    }
+    assert(ArgNo == ArgInfo.size());
+
+    if (!MissingFeature::inallocaArgs()) {
+      llvm_unreachable("NYI");
+    }
+
+    TotalIRArgs = IRArgNo;
+  }
 };
 
 } // namespace cir

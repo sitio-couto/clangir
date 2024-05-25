@@ -17,6 +17,7 @@
 #include "MissingFeature.h"
 #include "mlir/IR/Types.h"
 #include "clang/CIR/Dialect/IR/CIRTypes.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/TrailingObjects.h"
 #include <cstdint>
 
@@ -29,9 +30,11 @@ namespace cir {
 class ABIArgInfo {
 public:
   enum Kind : uint8_t {
+    /// Ignore the argument (treat as void). Useful for void and empty structs.
+    Ignore,
+
     /// Not yet supported.
     Direct,
-    Ignore,
     Extend,
     Indirect,
     IndirectAliased,
@@ -77,6 +80,13 @@ public:
   void setDirectAlign(unsigned Align) {
     assert((isDirect() || isExtend()) && "Not a direct or extend kind");
     DirectAttr.Align = Align;
+  }
+
+  static ABIArgInfo getIgnore() { return ABIArgInfo(Ignore); }
+
+  Type getCoerceToType() const {
+    assert(canHaveCoerceToType() && "Invalid kind!");
+    return typeData;
   }
 
   Kind getKind() const { return kind; }
@@ -130,6 +140,8 @@ struct LowerFunctionInfoArgInfo {
   ABIArgInfo info; // ABI-specific information.
 };
 
+// FIXME(cir): We could likely encode this information within CIR/MLIR (perhaps
+// as an interface), allowing us to eliminate this class.
 class LowerFunctionInfo final
     : private llvm::TrailingObjects<LowerFunctionInfo,
                                     LowerFunctionInfoArgInfo> {
@@ -199,6 +211,18 @@ public:
     return NumArgs + 1;
   }
 
+  typedef const ArgInfo *const_arg_iterator;
+  typedef ArgInfo *arg_iterator;
+
+  MutableArrayRef<ArgInfo> arguments() {
+    return MutableArrayRef<ArgInfo>(arg_begin(), NumArgs);
+  }
+
+  const_arg_iterator arg_begin() const { return getArgsBuffer() + 1; }
+  const_arg_iterator arg_end() const { return getArgsBuffer() + 1 + NumArgs; }
+  arg_iterator arg_begin() { return getArgsBuffer() + 1; }
+  arg_iterator arg_end() { return getArgsBuffer() + 1 + NumArgs; }
+
   unsigned arg_size() const { return NumArgs; }
 
   bool isVariadic() const {
@@ -210,6 +234,18 @@ public:
       llvm_unreachable("NYI");
     return arg_size();
   }
+
+  Type getReturnType() const { return getArgsBuffer()[0].type; }
+
+  ABIArgInfo &getReturnInfo() { return getArgsBuffer()[0].info; }
+  const ABIArgInfo &getReturnInfo() const { return getArgsBuffer()[0].info; }
+
+  /// Return the user specified callingconvention, which has been translated
+  /// into an LLVM CC.
+  unsigned getCallingConvention() const { return CallingConvention; }
+
+  /// Get the struct type used to represent all the arguments in memory.
+  StructType getArgStruct() const { return ArgStruct; }
 };
 
 } // namespace cir

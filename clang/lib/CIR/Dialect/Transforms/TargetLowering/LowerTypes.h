@@ -18,7 +18,9 @@
 #include "CIRCXXABI.h"
 #include "CIRContext.h"
 #include "DataLayout.h"
+#include "LowerCall.h"
 #include "mlir/IR/MLIRContext.h"
+#include "clang/Basic/Specifiers.h"
 
 namespace mlir {
 namespace cir {
@@ -46,11 +48,41 @@ private:
 
   CIRDataLayout DL;
 
+  const ABIInfo &getABIInfo() const { return TheABIInfo; }
+
 public:
   LowerTypes(LowerModule &LM, StringRef DLString);
   ~LowerTypes() = default;
 
   LowerModule &getLM() const { return LM; }
+  CIRCXXABI &getCXXABI() const { return CXXABI; }
+  CIRContext &getContext() { return context; }
+  MLIRContext *getMLIRContext() { return mlirContext; }
+
+  /// Convert clang calling convention to LLVM callilng convention.
+  unsigned clangCallConvToLLVMCallConv(clang::CallingConv CC);
+
+  /// Free functions are functions that are compatible with an ordinary
+  /// C function pointer type.
+  const LowerFunctionInfo &arrangeFreeFunctionCall(const OperandRange args,
+                                                   const FuncType fnType,
+                                                   bool chainCall);
+
+  /// Arrange the argument and result information for an abstract value
+  /// of a given function type.  This is the method which all of the
+  /// above functions ultimately defer to.
+  ///
+  /// \param resultType - ABI-agnostic CIR result type.
+  /// \param opts - Options to control the arrangement.
+  /// \param argTypes - ABI-agnostic CIR argument types.
+  /// \param required - Information about required/optional arguments.
+  const LowerFunctionInfo &arrangeLLVMFunctionInfo(Type resultType,
+                                                   FnInfoOpts opts,
+                                                   ArrayRef<Type> argTypes,
+                                                   RequiredArgs required);
+
+  /// Return the ABI-specific function type for a CIR function type.
+  FuncType getFunctionType(const LowerFunctionInfo &FI);
 };
 
 } // namespace cir
