@@ -89,9 +89,11 @@ struct CallConvLoweringPattern : public OpRewritePattern<FuncOp> {
       }
     }
 
-    // Rewrite function definition.
-    // FIXME(cir): This is a workaround to avoid an infinite loop in the driver.
-    rewriter.replaceOp(op, rewriter.clone(*op));
+    // TODO(cir): Instead of re-emmiting loads and stores, just bitcast
+    // arguments and return values to their ABI-specific counterparts.
+    if (lowerModule.rewriteFunctionDefinition(op).failed())
+      return failure();
+
     return success();
   }
 };

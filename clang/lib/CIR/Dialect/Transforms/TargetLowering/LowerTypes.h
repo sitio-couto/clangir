@@ -21,6 +21,7 @@
 #include "LowerCall.h"
 #include "mlir/IR/MLIRContext.h"
 #include "clang/Basic/Specifiers.h"
+#include "clang/CIR/Dialect/IR/CIRDialect.h"
 
 namespace mlir {
 namespace cir {
@@ -64,9 +65,14 @@ public:
 
   /// Free functions are functions that are compatible with an ordinary
   /// C function pointer type.
+  /// FIXME(cir): Does the "free function" concept makes sense here?
+  const LowerFunctionInfo &arrangeFunctionDeclaration(FuncOp fnOp);
   const LowerFunctionInfo &arrangeFreeFunctionCall(const OperandRange args,
                                                    const FuncType fnType,
                                                    bool chainCall);
+  const LowerFunctionInfo &arrangeFreeFunctionType(FuncType FTy);
+
+  const LowerFunctionInfo &arrangeGlobalDeclaration(FuncOp fnOp);
 
   /// Arrange the argument and result information for an abstract value
   /// of a given function type.  This is the method which all of the

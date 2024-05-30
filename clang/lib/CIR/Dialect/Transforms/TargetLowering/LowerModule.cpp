@@ -14,6 +14,7 @@
 #include "LowerModule.h"
 #include "CIRContext.h"
 #include "LowerFunction.h"
+#include "MissingFeature.h"
 #include "TargetInfo.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -80,11 +81,114 @@ const TargetLoweringInfo &LowerModule::getTargetLoweringInfo() {
   return *TheTargetCodeGenInfo;
 }
 
-LogicalResult LowerModule::rewriteGlobalFunctionDefinition(FuncOp op,
-                                                           LowerModule &state) {
+void LowerModule::setCIRFunctionAttributes(FuncOp GD,
+                                           const LowerFunctionInfo &Info,
+                                           FuncOp F, bool IsThunk) {
+  unsigned CallingConv;
+  // NOTE(cir): The method below will update the F function with the proper
+  // attributes.
+  constructAttributeList(GD.getName(), Info, GD, F, CallingConv,
+                         /*AttrOnCallSite=*/false, IsThunk);
+  // TODO(cir): Set Function's calling convention.
+}
+
+/// Set function attributes for a function declaration.
+///
+/// This method is based on CodeGenModule::SetFunctionAttributes but it
+/// altered to consider only the ABI/Target-related bits.
+void LowerModule::setFunctionAttributes(FuncOp oldFn, FuncOp newFn,
+                                        bool IsIncompleteFunction,
+                                        bool IsThunk) {
+
+  // TODO(cir): There's some special handling from attributes related to LLVM
+  // intrinsics. Should that here as well?
+
+  // Setup target-specific attributes.
+  if (!IsIncompleteFunction)
+    setCIRFunctionAttributes(oldFn, getTypes().arrangeGlobalDeclaration(oldFn),
+                             newFn, IsThunk);
+
+  // Add the Returned attribute for "this", except for iOS 5 and earlier
+  // where substantial code, including the libstdc++ dylib, was compiled with
+  // GCC and does not actually return "this".
+  // if (!IsThunk && getCXXABI().HasThisReturn(FO) &&
+  //     !(getTriple().isiOS() && getTriple().isOSVersionLT(6))) {
+  //   llvm_unreachable("NYI");
+  // }
+
+  // NOTE(cir): Skipping some linkage and other global value attributes here as
+  // it might be better for CIRGen to handle them.
+
+  // TODO(cir): Skipping section attributes here.
+
+  // TODO(cir): Skipping error attributes here.
+
+  // If we plan on emitting this inline builtin, we can't treat it as a builtin.
+  if (!MissingFeature::funcDeclIsInlineBuiltinDeclaration()) {
+    llvm_unreachable("NYI");
+  }
+
+  if (!MissingFeature::funcDeclIsReplaceableGlobalAllocationFunction()) {
+    llvm_unreachable("NYI");
+  }
+
+  if (!MissingFeature::funcDeclIsCXXConstructorDecl() ||
+      !MissingFeature::funcDeclIsCXXDestructorDecl())
+    llvm_unreachable("NYI");
+  else if (!MissingFeature::funcDeclIsCXXMethodDecl())
+    llvm_unreachable("NYI");
+
+  // NOTE(cir) Skipping emissions that depend on codegen options, as well as
+  // sanitizers handling here. Do this in CIRGen.
+
+  if (!MissingFeature::langOpts() && !MissingFeature::OpenMP())
+    llvm_unreachable("NYI");
+
+  // NOTE(cir): Skipping more codegen options dependend things here.
+
+  if (!MissingFeature::extParamInfo()) {
+    llvm_unreachable("NYI");
+  }
+}
+
+/// Rewrites an existing function to conform to the ABI.
+///
+/// This method is based on CodeGenModule::EmitGlobalFunctionDefinition but it
+/// considerably simplified as it tries to remove any CodeGen related code.
+LogicalResult LowerModule::rewriteFunctionDefinition(FuncOp op) {
   mlir::OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPoint(op);
-  return failure();
+
+  // Get ABI/target-specific function information.
+  const LowerFunctionInfo &FI = this->getTypes().arrangeGlobalDeclaration(op);
+
+  // Get ABI/target-specific function type.
+  FuncType Ty = this->getTypes().getFunctionType(FI);
+
+  // NOTE(cir): We skip the use of getAddrOfFunction and
+  // getOrCreateCIRFunction methods here, as they are mostly codegen logic.
+
+  // Create a new function with the ABI-specific types.
+  FuncOp newFn = cast<FuncOp>(rewriter.cloneWithoutRegions(op));
+  newFn.setType(Ty);
+
+  // NOTE(cir): The clone above will preserve any existing attributes. If any
+  // a attribute ought to be dropped, it should be done here.
+
+  // Set up ABI-specific function attributes.
+  setFunctionAttributes(op, newFn, false, /*IsThunk=*/false);
+  if (!MissingFeature::extParamInfo()) {
+    llvm_unreachable("ExtraAttrs are NYI");
+  }
+
+  if (LowerFunction(*this, rewriter, op, newFn)
+          .generateCode(op, newFn, FI)
+          .failed())
+    return failure();
+
+  // Erase original ABI-agnostic function.
+  rewriter.eraseOp(op);
+  return success();
 }
 
 LogicalResult LowerModule::rewriteFunctionCall(CallOp callOp, FuncOp funcOp) {

@@ -23,9 +23,16 @@ struct MissingFeature {
 
   static bool CUDA() { return true; }
   static bool swift() { return true; }
+  static bool OpenMP() { return true; }
 
   //==-- Missing AST queries -----------------------------------------------==//
 
+  static bool funcDeclIsCXXConstructorDecl() { return true; }
+  static bool funcDeclIsCXXDestructorDecl() { return true; }
+  static bool funcDeclIsCXXMethodDecl() { return true; }
+  static bool funcDeclIsInlineBuiltinDeclaration() { return true; }
+  static bool funcDeclIsReplaceableGlobalAllocationFunction() { return true; }
+  static bool qualTypeIsReferenceType() { return true; }
   static bool recordDeclCanPassInRegisters() { return true; }
 
   //==-- Missing types -----------------------------------------------------==//
@@ -38,8 +45,8 @@ struct MissingFeature {
   // up argument registers), but we do not yet track such cases.
   static bool chainCall() { return true; }
 
-  // Parameters may have additional attributes (e.g. [[noescape]]) that affect
-  // the compiler. This is not yet supported in CIR.
+  // Parameters may have additional attributes (e.g. [[noescape]],
+  // [[callback(0)]]) that affect the compiler. This is NYI in CIR.
   static bool extParamInfo() { return true; }
 
   // Inalloca parameter attributes are mostly used for Windows x86_32 ABI. We
@@ -61,6 +68,9 @@ struct MissingFeature {
   // Some ABIs (e.g. x86) require special handling for returning large structs
   // by value. The sret argument parameter aids in this, but it is current NYI.
   static bool sretArgs() { return true; }
+
+  static bool noReturn() { return true; }
+  static bool csmeCall() { return true; }
 
   // Despite carrying some information about variadics, we are currently
   // ignoring this to focus only on the code necessary to lower non-variadics.
